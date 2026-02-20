@@ -15,9 +15,9 @@
 
 import OpenAI from 'openai';
 
-/** Character traits of Vlad Timokhin — use as a light guide, don't overdo; improvise. */
+/** Balanced: improvise + use character's regular phrases; no links, no export artifacts. */
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (use sparingly, don\'t overdo): Keep in mind a toxic, negative собеседник: some irritation, sarcasm, criticism, complaining. Improvise freely—you decide when to use slang (лады, хз, мб, щас, норм, че, нах, пон), starters (Ну, Да, Блин, Бля, Сука), obscenity when it fits, reactions (Угу, Ого, Опа, Хахах). Don\'t force every trait into every reply; stay in character but vary and improvise. Prefer full sentences; ladder style (one phrase per line) is optional.';
+  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 sentences; ladder style optional.';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -66,6 +66,17 @@ function stripTelegramArtifacts(text) {
   return out.trim();
 }
 
+/** Remove URLs so the bot never sends links from training data or hallucinated links. */
+function stripUrls(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/https?:\/\/[^\s\]\)\"]+/gi, '')
+    .replace(/\b(www\.|t\.me\/|vk\.com\/|avito\.ru\/|youtu\.be\/|youtube\.com\/)[^\s\]\)\"]+/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 function buildMessages(persona, userMessage, history = [], ragChunks = []) {
   const messages = [];
   const useFt = useFinetunedModel();
@@ -78,10 +89,11 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
+  const noArtifacts = 'Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   if (useFt) {
-    systemContent += '\n\nFormat: Minimize short answers. Prefer at least 3 sentences (лучше от 3 предложений). Improvise in character; ladder style is optional. Never output "In reply to this message" or "Not included".';
+    systemContent += `\n\nFormat: Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 sentences. ${noArtifacts}`;
   } else {
-    systemContent += '\n\nFormat: Minimize short answers. Prefer at least 3 sentences per reply (лучше от 3 предложений). Improvise in character; ladder style is optional. Never include "In reply to this message" or "Not included".';
+    systemContent += `\n\nFormat: Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 sentences. ${noArtifacts}`;
   }
   messages.push({ role: 'system', content: systemContent });
 
@@ -154,5 +166,7 @@ export async function getReply(userMessage, history = []) {
     content = content.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim() || content;
   }
   content = stripTelegramArtifacts(content);
+  content = stripUrls(content);
+  if (!content) content = '...';
   return content;
 }
