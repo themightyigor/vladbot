@@ -24,14 +24,18 @@ import { fileURLToPath } from 'url';
 import { retrieve, hasRagIndex } from '../rag/retrieve.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PERSONA_FILE = path.join(__dirname, '../../data/persona.json');
+const ROOT_DATA = path.join(process.cwd(), 'data');
+const REL_DATA = path.join(__dirname, '../../data');
+const PERSONA_FILE = fs.existsSync(path.join(ROOT_DATA, 'persona.json'))
+  ? path.join(ROOT_DATA, 'persona.json')
+  : path.join(REL_DATA, 'persona.json');
 
 let cachedPersona = null;
 
 function loadPersona() {
   if (cachedPersona) return cachedPersona;
   if (!fs.existsSync(PERSONA_FILE)) {
-    throw new Error('Persona not built. Run: npm run build-persona');
+    throw new Error(`Persona not built. Run: npm run build-persona. Looked at: ${PERSONA_FILE}`);
   }
   cachedPersona = JSON.parse(fs.readFileSync(PERSONA_FILE, 'utf8'));
   return cachedPersona;

@@ -1,5 +1,8 @@
 node_modules/
 .env
-data/
 *.log
 .DS_Store
+
+# data/ – ignore large/sensitive files; allow only persona for deploy (rag-index too large for GitHub)
+data/*
+!data/persona.json

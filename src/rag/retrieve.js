@@ -8,7 +8,11 @@ import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const RAG_INDEX_FILE = path.join(__dirname, '../../data/rag-index.json');
+const ROOT_DATA = path.join(process.cwd(), 'data');
+const REL_DATA = path.join(__dirname, '../../data');
+const RAG_INDEX_FILE = fs.existsSync(path.join(ROOT_DATA, 'rag-index.json'))
+  ? path.join(ROOT_DATA, 'rag-index.json')
+  : path.join(REL_DATA, 'rag-index.json');
 
 let cachedIndex = null;
 
