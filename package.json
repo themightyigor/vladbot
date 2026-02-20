@@ -1,0 +1,23 @@
+{
+  "name": "vladbot",
+  "version": "1.0.0",
+  "description": "Telegram bot that replies in a person's style using OpenAI and learned conversation",
+  "engines": { "node": ">=18" },
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "parse": "node src/parser/parseExport.js",
+    "build-persona": "node src/persona/buildPersona.js",
+    "build-rag": "node src/rag/buildIndex.js",
+    "prepare-finetune": "node src/finetune/prepareTrainingData.js",
+    "start-finetune-job": "node src/finetune/startJob.js",
+    "bot": "node src/index.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.3.1",
+    "openai": "^4.24.1",
+    "telegraf": "^4.15.0"
+  }
+}
