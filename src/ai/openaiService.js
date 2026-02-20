@@ -17,7 +17,7 @@ import OpenAI from 'openai';
 
 /** Balanced: improvise + use character's regular phrases; no links, no export artifacts. */
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 sentences; ladder style optional.';
+  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Do not use commas—this is not Vlad\'s style; separate thoughts by newlines or short phrases. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 sentences; ladder style optional.';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -89,7 +89,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
-  const noArtifacts = 'Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
+  const noArtifacts = 'Never use commas (not Vlad\'s style). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   if (useFt) {
     systemContent += `\n\nFormat: Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 sentences. ${noArtifacts}`;
   } else {
@@ -167,6 +167,7 @@ export async function getReply(userMessage, history = []) {
   }
   content = stripTelegramArtifacts(content);
   content = stripUrls(content);
+  content = content.replace(/,/g, ' ').replace(/\s{2,}/g, ' ').trim();
   if (!content) content = '...';
   return content;
 }
