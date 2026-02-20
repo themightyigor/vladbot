@@ -173,6 +173,7 @@ export async function getReply(userMessage, history = [], options = {}) {
   content = stripTelegramArtifacts(content);
   content = stripUrls(content);
   content = content.replace(/,/g, ' ').replace(/[ \t]{2,}/g, ' ').trim();
+  content = content.replace(/\n\s*\n/g, '\n').trim();
   if (!content) content = '...';
   return content;
 }
