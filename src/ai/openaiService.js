@@ -17,7 +17,7 @@ import OpenAI from 'openai';
 
 /** Balanced: improvise + use character's regular phrases; no links, no export artifacts. */
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Do not use commas—this is not Vlad\'s style; separate thoughts by newlines or short phrases. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 sentences; ladder style optional.';
+  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Do not use commas—this is not Vlad\'s style. Always write in ladder style (лесенка): put each short phrase on a new line, one thought per line, use line breaks—this is Vlad\'s style, do not forget. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 lines; each line = one short phrase.';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -77,7 +77,7 @@ function stripUrls(text) {
     .trim();
 }
 
-function buildMessages(persona, userMessage, history = [], ragChunks = []) {
+function buildMessages(persona, userMessage, history = [], ragChunks = [], quotedText = null) {
   const messages = [];
   const useFt = useFinetunedModel();
 
@@ -89,11 +89,11 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
-  const noArtifacts = 'Never use commas (not Vlad\'s style). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
+  const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   if (useFt) {
-    systemContent += `\n\nFormat: Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 sentences. ${noArtifacts}`;
+    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
   } else {
-    systemContent += `\n\nFormat: Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 sentences. ${noArtifacts}`;
+    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
   }
   messages.push({ role: 'system', content: systemContent });
 
@@ -111,7 +111,11 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
     messages.push({ role: h.role === 'bot' ? 'assistant' : 'user', content: h.text });
   }
 
-  messages.push({ role: 'user', content: userMessage });
+  let lastUserContent = userMessage;
+  if (typeof quotedText === 'string' && quotedText.length > 0) {
+    lastUserContent = `[Пользователь отвечает на твоё сообщение: «${quotedText}»]\n\n${userMessage}`;
+  }
+  messages.push({ role: 'user', content: lastUserContent });
   return messages;
 }
 
@@ -121,7 +125,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
  * @param {Array<{ role: 'user'|'bot', text: string }>} history - Recent conversation (optional)
  * @returns {Promise<string>} Assistant reply
  */
-export async function getReply(userMessage, history = []) {
+export async function getReply(userMessage, history = [], options = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not set');
@@ -137,7 +141,8 @@ export async function getReply(userMessage, history = []) {
   }
 
   const persona = loadPersona();
-  const messages = buildMessages(persona, userMessage, history, ragChunks);
+  const quotedText = options?.quotedText ?? null;
+  const messages = buildMessages(persona, userMessage, history, ragChunks, quotedText);
 
   const model = useFinetunedModel()
     ? process.env.OPENAI_FINETUNED_MODEL.trim()
@@ -167,7 +172,7 @@ export async function getReply(userMessage, history = []) {
   }
   content = stripTelegramArtifacts(content);
   content = stripUrls(content);
-  content = content.replace(/,/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  content = content.replace(/,/g, ' ').replace(/[ \t]{2,}/g, ' ').trim();
   if (!content) content = '...';
   return content;
 }

@@ -1,6 +1,6 @@
 /**
  * Telegram bot: receives messages, calls OpenAI in persona style, replies.
- * Works in private chat and in groups (only when @mentioned).
+ * Works in private chat and in groups (when @mentioned or when replying to the bot).
  * Requires BOT_TOKEN and OPENAI_API_KEY in .env; run npm run parse and npm run build-persona first.
  */
 
@@ -13,6 +13,7 @@ const userHistory = new Map();
 const MAX_HISTORY = 20;
 
 let botUsername = null;
+let botId = null;
 
 function historyKey(ctx) {
   const chatId = ctx.chat.id;
@@ -44,10 +45,24 @@ function stripMention(text) {
   return text.replace(re, '').trim();
 }
 
+function isReplyToBot(ctx) {
+  const reply = ctx.message?.reply_to_message;
+  if (!reply?.from) return false;
+  return reply.from.is_bot && reply.from.id === botId;
+}
+
+function getQuotedText(ctx) {
+  const reply = ctx.message?.reply_to_message;
+  if (!reply) return null;
+  const text = reply.text ?? reply.caption ?? '';
+  return text.trim() || null;
+}
+
 function shouldRespond(ctx) {
   const type = ctx.chat?.type;
   if (type === 'private') return true;
   if (type === 'group' || type === 'supergroup') {
+    if (isReplyToBot(ctx)) return true;
     const text = ctx.message?.text ?? '';
     return !!(botUsername && text.toLowerCase().includes(`@${botUsername.toLowerCase()}`));
   }
@@ -55,7 +70,7 @@ function shouldRespond(ctx) {
 }
 
 bot.start((ctx) => {
-  return ctx.reply("Hi. Send me a message and I'll reply in character. In groups, @mention me to get a reply.");
+  return ctx.reply("Hi. Send me a message and I'll reply in character. In groups, @mention me or reply to my message.");
 });
 
 bot.on('text', async (ctx) => {
@@ -69,11 +84,12 @@ bot.on('text', async (ctx) => {
 
   const key = historyKey(ctx);
   const history = getHistory(key).map((m) => ({ role: m.role, text: m.text }));
+  const quotedText = getQuotedText(ctx);
 
   await ctx.sendChatAction('typing');
 
   try {
-    const reply = await getReply(text, history);
+    const reply = await getReply(text, history, { quotedText });
     await ctx.reply(reply);
     pushHistory(key, 'user', text);
     pushHistory(key, 'bot', reply);
@@ -90,6 +106,7 @@ export async function runBot() {
   }
   const me = await bot.telegram.getMe();
   botUsername = me.username;
+  botId = me.id;
   await bot.launch();
   console.log('Bot is running (long polling). Username:', botUsername);
   process.once('SIGINT', () => bot.stop('SIGINT'));
