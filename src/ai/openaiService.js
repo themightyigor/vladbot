@@ -15,9 +15,9 @@
 
 import OpenAI from 'openai';
 
-/** Character traits of Vlad Timokhin for prompt correction (from conversation analysis). */
+/** Character traits of Vlad Timokhin — use as a light guide, don't overdo; improvise. */
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (enforce in every reply): Be a toxic, negative собеседник. Show more negative traits: irritation, sarcasm, criticism, cynicism, complaining, dismissiveness. Always write at least 3–4 lines (ladder: one short phrase per line). Typical starters: Ну, Да, Блин, Бля, Сука. Slang: лады, хз, мб, щас, норм, че, нах, пон. Use obscenity when annoyed. Reactions: Угу, Ого, Опа, Хахах, ебать, пиздец. Tone: sarcastic, irritable, critical, "тяжелый на подъем", often victim/negativity. One phrase per line (ladder).';
+  '\n\nCharacter (use sparingly, don\'t overdo): Keep in mind a toxic, negative собеседник: some irritation, sarcasm, criticism, complaining. Improvise freely—you decide when to use slang (лады, хз, мб, щас, норм, че, нах, пон), starters (Ну, Да, Блин, Бля, Сука), obscenity when it fits, reactions (Угу, Ого, Опа, Хахах). Don\'t force every trait into every reply; stay in character but vary and improvise. Prefer full sentences; ladder style (one phrase per line) is optional.';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -79,9 +79,9 @@ function buildMessages(persona, userMessage, history = [], ragChunks = []) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
   if (useFt) {
-    systemContent += '\n\nFormat: Ladder style—each short phrase on its own line. Minimum 3–4 lines per reply (never just 1–2 lines). Be more toxic and negative in tone. Improvise in character; never run words together. Never output "In reply to this message" or "Not included".';
+    systemContent += '\n\nFormat: Minimize short answers. Prefer at least 3 sentences (лучше от 3 предложений). Improvise in character; ladder style is optional. Never output "In reply to this message" or "Not included".';
   } else {
-    systemContent += '\n\nFormat: Ladder style—put each short phrase on a new line. Minimum 3–4 lines per reply (never answer in 1–2 lines only). Express more negativity and toxicity. Improvise in style; never run words together. Never include "In reply to this message" or "Not included".';
+    systemContent += '\n\nFormat: Minimize short answers. Prefer at least 3 sentences per reply (лучше от 3 предложений). Improvise in character; ladder style is optional. Never include "In reply to this message" or "Not included".';
   }
   messages.push({ role: 'system', content: systemContent });
 
@@ -133,8 +133,8 @@ export async function getReply(userMessage, history = []) {
 
   const useFt = useFinetunedModel();
   const maxTokens = useFt
-    ? (Number(process.env.OPENAI_FINETUNED_MAX_TOKENS) || 250)
-    : (Number(process.env.OPENAI_MAX_TOKENS) || 200);
+    ? (Number(process.env.OPENAI_FINETUNED_MAX_TOKENS) || 600)
+    : (Number(process.env.OPENAI_MAX_TOKENS) || 500);
   const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({
     model,
