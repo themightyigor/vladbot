@@ -113,7 +113,21 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   if (typeof quotedText === 'string' && quotedText.length > 0) {
     lastUserContent = `[Пользователь отвечает на твоё сообщение: «${quotedText}»]\n\n${userMessage}`;
   }
-  messages.push({ role: 'user', content: lastUserContent });
+  const imageBuffer = options.imageBuffer;
+  const imageMimeType = options.imageMimeType || 'image/jpeg';
+  if (imageBuffer && Buffer.isBuffer(imageBuffer)) {
+    const b64 = imageBuffer.toString('base64');
+    const dataUrl = `data:${imageMimeType};base64,${b64}`;
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: lastUserContent },
+        { type: 'image_url', image_url: { url: dataUrl } }
+      ]
+    });
+  } else {
+    messages.push({ role: 'user', content: lastUserContent });
+  }
   return messages;
 }
 
@@ -139,14 +153,20 @@ export async function getReply(userMessage, history = [], options = {}) {
   }
 
   const persona = loadPersona();
+  const hasImage = options?.imageBuffer && Buffer.isBuffer(options.imageBuffer);
   const messages = buildMessages(persona, userMessage, history, ragChunks, {
     quotedText: options?.quotedText ?? null,
-    username: options?.username ?? ''
+    username: options?.username ?? '',
+    imageBuffer: options?.imageBuffer,
+    imageMimeType: options?.imageMimeType
   });
 
-  const model = useFinetunedModel()
-    ? process.env.OPENAI_FINETUNED_MODEL.trim()
-    : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+  const model =
+    hasImage
+      ? (process.env.OPENAI_MODEL || 'gpt-4o-mini')
+      : useFinetunedModel()
+        ? process.env.OPENAI_FINETUNED_MODEL.trim()
+        : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
 
   const useFt = useFinetunedModel();
   const maxTokens = useFt

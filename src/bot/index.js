@@ -75,6 +75,52 @@ function shouldRespond(ctx) {
   return false;
 }
 
+function shouldRespondMedia(ctx) {
+  const type = ctx.chat?.type;
+  if (type === 'private') return true;
+  if (type === 'group' || type === 'supergroup') return isReplyToBot(ctx);
+  return false;
+}
+
+async function downloadTelegramFile(telegram, fileId) {
+  const file = await telegram.getFile(fileId);
+  const token = process.env.BOT_TOKEN;
+  const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Telegram file download failed: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function sendReplyAndSave(ctx, key, userMsg, reply) {
+  const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
+  const now = Date.now();
+  const voiceCooldownExpired = now - lastVoiceAt >= VOICE_COOLDOWN_MS;
+  const useVoice =
+    isElevenLabsConfigured() &&
+    voiceId &&
+    voiceCooldownExpired &&
+    !wouldExceedDailyLimit(reply.length, dailyVoiceCharLimit);
+
+  if (useVoice) {
+    try {
+      await ctx.sendChatAction('record_voice');
+      const mp3Buffer = await getSpeech(reply, voiceId);
+      const oggBuffer = await mp3ToOggOpus(mp3Buffer);
+      const file = Input.fromBuffer(oggBuffer, 'voice.ogg');
+      await ctx.replyWithVoice(file);
+      lastVoiceAt = now;
+      addVoiceChars(reply.length);
+    } catch (voiceErr) {
+      console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
+      await ctx.reply(reply);
+    }
+  } else {
+    await ctx.reply(reply);
+  }
+  pushHistory(key, 'user', userMsg);
+  pushHistory(key, 'bot', reply);
+}
+
 bot.start((ctx) => {
   return ctx.reply("Hi. Send me a message and I'll reply in character. In groups, @mention me or reply to my message.");
 });
@@ -96,39 +142,72 @@ bot.on('text', async (ctx) => {
 
   try {
     const reply = await getReply(text, history, { quotedText, username: ctx.from?.username ?? '' });
-    const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
-
-    const now = Date.now();
-    const voiceCooldownExpired = now - lastVoiceAt >= VOICE_COOLDOWN_MS;
-
-    const useVoice =
-      isElevenLabsConfigured() &&
-      voiceId &&
-      voiceCooldownExpired &&
-      !wouldExceedDailyLimit(reply.length, dailyVoiceCharLimit);
-
-    if (useVoice) {
-      try {
-        await ctx.sendChatAction('record_voice');
-        const mp3Buffer = await getSpeech(reply, voiceId);
-        const oggBuffer = await mp3ToOggOpus(mp3Buffer);
-        const file = Input.fromBuffer(oggBuffer, 'voice.ogg');
-        await ctx.replyWithVoice(file);
-        lastVoiceAt = now;
-        addVoiceChars(reply.length);
-      } catch (voiceErr) {
-        console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
-        await ctx.reply(reply);
-      }
-    } else {
-      await ctx.reply(reply);
-    }
-
-    pushHistory(key, 'user', text);
-    pushHistory(key, 'bot', reply);
+    await sendReplyAndSave(ctx, key, text, reply);
   } catch (err) {
     console.error(err);
     await ctx.reply("Something went wrong. Check logs and that OPENAI_API_KEY and persona are set.");
+  }
+});
+
+bot.on('photo', async (ctx) => {
+  if (!shouldRespondMedia(ctx)) return;
+
+  const key = historyKey(ctx);
+  const history = getHistory(key).map((m) => ({ role: m.role, text: m.text }));
+  const caption = ctx.message.caption?.trim() || '';
+  const userMsg = caption || '[фото]';
+
+  await ctx.sendChatAction('typing');
+
+  try {
+    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    const imageBuffer = await downloadTelegramFile(ctx.telegram, photo.file_id);
+    const prompt = caption ? caption : 'Что на картинке? Ответь в своём стиле (подкалывай, мат, политика).';
+    const reply = await getReply(prompt, history, {
+      imageBuffer,
+      imageMimeType: 'image/jpeg',
+      username: ctx.from?.username ?? ''
+    });
+    await sendReplyAndSave(ctx, key, userMsg, reply);
+  } catch (err) {
+    console.error(err);
+    await ctx.reply('Не разобрал картинку, блять. Попробуй ещё раз или напиши текстом.');
+  }
+});
+
+bot.on('sticker', async (ctx) => {
+  if (!shouldRespondMedia(ctx)) return;
+
+  const key = historyKey(ctx);
+  const history = getHistory(key).map((m) => ({ role: m.role, text: m.text }));
+  const sticker = ctx.message.sticker;
+
+  if (sticker.is_animated) {
+    try {
+      const reply = await getReply('Юзер прислал анимированный стикер. Ответь в своём стиле что такие не смотришь.', history, {
+        username: ctx.from?.username ?? ''
+      });
+      await sendReplyAndSave(ctx, key, '[аним. стикер]', reply);
+    } catch (err) {
+      console.error(err);
+      await ctx.reply('Анимированные стикеры не смотрю, блять.');
+    }
+    return;
+  }
+
+  await ctx.sendChatAction('typing');
+
+  try {
+    const imageBuffer = await downloadTelegramFile(ctx.telegram, sticker.file_id);
+    const reply = await getReply('Что на стикере? Ответь в своём стиле (подкалывай, мат, политика).', history, {
+      imageBuffer,
+      imageMimeType: 'image/webp',
+      username: ctx.from?.username ?? ''
+    });
+    await sendReplyAndSave(ctx, key, '[стикер]', reply);
+  } catch (err) {
+    console.error(err);
+    await ctx.reply('Стикер не разобрал. Пиши текстом.');
   }
 });
 
