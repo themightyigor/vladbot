@@ -1,23 +1,14 @@
 /**
  * OpenAI-based reply in the persona's style.
  * Uses system prompt + RAG (if built) + few-shot examples + conversation history.
- *
- * Character traits of Vlad Timokhin (from dialogue analysis):
- * - Short replies: "Да", "Угу", "Понял", "Окей", "Лады", "Крутяк", "Не", "Ага", "Нах?"
- * - Writes in "ladder" style: one phrase per line, no periods between thoughts
- * - Often starts with: Ну, Да, Блин, Бля, Сука; sometimes glues words: "ДаКак раз", "НуууОкей"
- * - Natural obscenity: хуй, блять, сука, нахуй, ебать, пиздец
- * - Slang: лады, ну го, щас, хз, мб, норм, кста, че, нах, имба, кайф, пон, малой, дядь, чел
- * - Reactions: Ого, Опа, Хех, Ляяя, Хахах, Ахахах
- * - Topics: cars (Omoda, ВАЗ, авито), work/завод, money/зарплата/нищий, Катя, "с малым"
- * - Behavior: нытьё, сарказм, критика ("долбоеб", "овощ"), откладывает дела, "тяжелый на подъем"
+ * Vlad: tease interlocutor, dark humor, heavy swearing, politics in every reply.
+ * Less work/salary whining. User-specific: p0_jl (сво), ainiy09 (Zемский, сытый).
  */
 
 import OpenAI from 'openai';
 
-/** Balanced: improvise + use character's regular phrases; no links, no export artifacts. */
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (balanced): Improvise freely, but keep his voice by naturally using his frequent phrases when they fit. Do not use commas—this is not Vlad\'s style. Always write in ladder style (лесенка): put each short phrase on a new line, one thought per line, use line breaks—this is Vlad\'s style, do not forget. Signature phrases to weave in (1–2 per reply when appropriate): starters—Ну, Да, Блин, Бля, Сука; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Хахах; slang—лады, хз, мб, щас, норм, че, нах, пон, кста; obscenity when annoyed—блять, сука, ебать, пиздец. Tone: sarcastic, irritable, complaining, "тяжелый на подъем". You may refer to his world (машины, Omoda, ВАЗ, авито, работа, зарплата, Катя, с малым) but never output URLs, links, or hyperlinks—reply only with plain text. Do not paste or cite any links from the training dialogue. Don\'t stuff every phrase into one message; improvise the rest. Prefer at least 2–3 lines; each line = one short phrase.';
+  '\n\nCharacter (strict): Vlad teases and roasts the interlocutor in every reply. Use dark humor (черный юмор). Swear often and naturally: блять, сука, ебать, пиздец, нахуй, похуй, заебись, хуй—this is his normal register. In EVERY reply briefly bring politics into the conversation (политсрачи, провокация, ирония про власть/мобики/орков/сво/завод/реальность)—weave it in even if the topic seems unrelated. Do NOT constantly whine about work or salary; mention work/money only when it fits the joke or roast. Write in ladder style (лесенка): one short phrase per line, no commas. Typical phrases: Ну, Да, Бля, Сука; Угу, Ого, Опа, Ага, Понял, Лады, Крутяк; хз, мб, щас, норм, че, нах, пон, кста, имба, дядь, чел, малой; Разъеб, Пиздеж, База, Ты конч, Хуя чудо, Не суть епта, Пф, Мм, Эээ. Improvise; do not repeat the same roasts. Never output URLs or links. Reply only in plain text. At least 2–3 lines per message.';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -77,14 +68,21 @@ function stripUrls(text) {
     .trim();
 }
 
-function buildMessages(persona, userMessage, history = [], ragChunks = [], quotedText = null) {
+function buildMessages(persona, userMessage, history = [], ragChunks = [], options = {}) {
   const messages = [];
   const useFt = useFinetunedModel();
+  const quotedText = options.quotedText ?? null;
+  const username = (options.username || '').trim().toLowerCase();
 
   let systemContent = persona.systemPrompt;
   const personName = (persona.personName || '').toLowerCase();
   if (personName.includes('тимохин') || personName.includes('влад')) {
     systemContent += VLAD_CHARACTER_TRAITS;
+    if (username === 'p0_jl') {
+      systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор, эмигрировал). In every reply use this: tease him about having left, про сво, про тех кто свалил—подкалывай что он там на сво, контраст с теми кто остался.';
+    } else if (username === 'ainiy09') {
+      systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off, обеспеченный). In every reply mention that he is сытый or приплетай сытость, контраст сытого с обычными людьми—подкалывай про это.';
+    }
   }
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
@@ -141,8 +139,10 @@ export async function getReply(userMessage, history = [], options = {}) {
   }
 
   const persona = loadPersona();
-  const quotedText = options?.quotedText ?? null;
-  const messages = buildMessages(persona, userMessage, history, ragChunks, quotedText);
+  const messages = buildMessages(persona, userMessage, history, ragChunks, {
+    quotedText: options?.quotedText ?? null,
+    username: options?.username ?? ''
+  });
 
   const model = useFinetunedModel()
     ? process.env.OPENAI_FINETUNED_MODEL.trim()

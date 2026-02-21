@@ -93,7 +93,7 @@ bot.on('text', async (ctx) => {
   await ctx.sendChatAction('typing');
 
   try {
-    const reply = await getReply(text, history, { quotedText });
+    const reply = await getReply(text, history, { quotedText, username: ctx.from?.username ?? '' });
     const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
 
     const now = Date.now();
