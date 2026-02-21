@@ -12,7 +12,9 @@ import { mp3ToOggOpus } from '../ai/mp3ToOgg.js';
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const userHistory = new Map();
+const lastVoiceAt = new Map();
 const MAX_HISTORY = 20;
+const VOICE_COOLDOWN_MS = 5 * 60 * 1000;
 
 let botUsername = null;
 let botId = null;
@@ -94,13 +96,18 @@ bot.on('text', async (ctx) => {
     const reply = await getReply(text, history, { quotedText });
     const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
 
-    if (isElevenLabsConfigured() && voiceId) {
+    const now = Date.now();
+    const lastVoice = lastVoiceAt.get(key) ?? 0;
+    const voiceCooldownExpired = now - lastVoice >= VOICE_COOLDOWN_MS;
+
+    if (isElevenLabsConfigured() && voiceId && voiceCooldownExpired) {
       try {
         await ctx.sendChatAction('record_voice');
         const mp3Buffer = await getSpeech(reply, voiceId);
         const oggBuffer = await mp3ToOggOpus(mp3Buffer);
         const file = Input.fromBuffer(oggBuffer, 'voice.ogg');
         await ctx.replyWithVoice(file);
+        lastVoiceAt.set(key, now);
       } catch (voiceErr) {
         console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
         await ctx.reply(reply);
