@@ -8,6 +8,7 @@ import { Telegraf, Input } from 'telegraf';
 import { getReply } from '../ai/openaiService.js';
 import { getSpeech, isElevenLabsConfigured } from '../ai/elevenlabsService.js';
 import { mp3ToOggOpus } from '../ai/mp3ToOgg.js';
+import { wouldExceedDailyLimit, addVoiceChars } from '../ai/voiceUsage.js';
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -15,6 +16,7 @@ const userHistory = new Map();
 let lastVoiceAt = 0;
 const MAX_HISTORY = 20;
 const VOICE_COOLDOWN_MS = 5 * 60 * 1000;
+const dailyVoiceCharLimit = Math.max(0, Number(process.env.ELEVENLABS_DAILY_CHAR_LIMIT) || 0);
 
 let botUsername = null;
 let botId = null;
@@ -99,7 +101,13 @@ bot.on('text', async (ctx) => {
     const now = Date.now();
     const voiceCooldownExpired = now - lastVoiceAt >= VOICE_COOLDOWN_MS;
 
-    if (isElevenLabsConfigured() && voiceId && voiceCooldownExpired) {
+    const useVoice =
+      isElevenLabsConfigured() &&
+      voiceId &&
+      voiceCooldownExpired &&
+      !wouldExceedDailyLimit(reply.length, dailyVoiceCharLimit);
+
+    if (useVoice) {
       try {
         await ctx.sendChatAction('record_voice');
         const mp3Buffer = await getSpeech(reply, voiceId);
@@ -107,6 +115,7 @@ bot.on('text', async (ctx) => {
         const file = Input.fromBuffer(oggBuffer, 'voice.ogg');
         await ctx.replyWithVoice(file);
         lastVoiceAt = now;
+        addVoiceChars(reply.length);
       } catch (voiceErr) {
         console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
         await ctx.reply(reply);
