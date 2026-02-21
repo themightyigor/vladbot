@@ -75,10 +75,14 @@ function shouldRespond(ctx) {
   return false;
 }
 
-function shouldRespondMedia(ctx) {
+function shouldRespondMedia(ctx, captionOrText = '') {
   const type = ctx.chat?.type;
   if (type === 'private') return true;
-  if (type === 'group' || type === 'supergroup') return isReplyToBot(ctx);
+  if (type === 'group' || type === 'supergroup') {
+    if (isReplyToBot(ctx)) return true;
+    const text = (captionOrText || ctx.message?.caption || '').trim();
+    return !!(botUsername && text.toLowerCase().includes(`@${botUsername.toLowerCase()}`));
+  }
   return false;
 }
 
@@ -150,11 +154,11 @@ bot.on('text', async (ctx) => {
 });
 
 bot.on('photo', async (ctx) => {
-  if (!shouldRespondMedia(ctx)) return;
+  const caption = ctx.message.caption?.trim() || '';
+  if (!shouldRespondMedia(ctx, caption)) return;
 
   const key = historyKey(ctx);
   const history = getHistory(key).map((m) => ({ role: m.role, text: m.text }));
-  const caption = ctx.message.caption?.trim() || '';
   const userMsg = caption || '[фото]';
 
   await ctx.sendChatAction('typing');
@@ -162,7 +166,8 @@ bot.on('photo', async (ctx) => {
   try {
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const imageBuffer = await downloadTelegramFile(ctx.telegram, photo.file_id);
-    const prompt = caption ? caption : 'Что на картинке? Ответь в своём стиле (подкалывай, мат, политика).';
+    const promptText = caption ? stripMention(caption).trim() : '';
+    const prompt = promptText || 'Что на картинке? Ответь в своём стиле (подкалывай, мат, политика).';
     const reply = await getReply(prompt, history, {
       imageBuffer,
       imageMimeType: 'image/jpeg',
