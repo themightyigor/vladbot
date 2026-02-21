@@ -161,12 +161,11 @@ export async function getReply(userMessage, history = [], options = {}) {
     imageMimeType: options?.imageMimeType
   });
 
-  const model =
-    hasImage
-      ? (process.env.OPENAI_MODEL || 'gpt-5-mini')
-      : useFinetunedModel()
-        ? process.env.OPENAI_FINETUNED_MODEL.trim()
-        : (process.env.OPENAI_MODEL || 'gpt-5-mini');
+  const model = hasImage
+    ? (process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini')
+    : useFinetunedModel()
+      ? process.env.OPENAI_FINETUNED_MODEL.trim()
+      : (process.env.OPENAI_MODEL || 'gpt-5-mini');
 
   const useFt = useFinetunedModel();
   const maxTokens = useFt
