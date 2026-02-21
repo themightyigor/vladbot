@@ -7,6 +7,7 @@
 import { Telegraf, Input } from 'telegraf';
 import { getReply } from '../ai/openaiService.js';
 import { getSpeech, isElevenLabsConfigured } from '../ai/elevenlabsService.js';
+import { mp3ToOggOpus } from '../ai/mp3ToOgg.js';
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -96,9 +97,10 @@ bot.on('text', async (ctx) => {
     if (isElevenLabsConfigured() && voiceId) {
       try {
         await ctx.sendChatAction('record_voice');
-        const audioBuffer = await getSpeech(reply, voiceId);
-        const file = Input.fromBuffer(audioBuffer, 'voice.mp3');
-        await ctx.replyWithAudio(file, { title: 'Vlad' });
+        const mp3Buffer = await getSpeech(reply, voiceId);
+        const oggBuffer = await mp3ToOggOpus(mp3Buffer);
+        const file = Input.fromBuffer(oggBuffer, 'voice.ogg');
+        await ctx.replyWithVoice(file);
       } catch (voiceErr) {
         console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
         await ctx.reply(reply);
