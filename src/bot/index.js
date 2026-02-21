@@ -4,8 +4,9 @@
  * Requires BOT_TOKEN and OPENAI_API_KEY in .env; run npm run parse and npm run build-persona first.
  */
 
-import { Telegraf } from 'telegraf';
+import { Telegraf, Input } from 'telegraf';
 import { getReply } from '../ai/openaiService.js';
+import { getSpeech, isElevenLabsConfigured } from '../ai/elevenlabsService.js';
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -90,7 +91,22 @@ bot.on('text', async (ctx) => {
 
   try {
     const reply = await getReply(text, history, { quotedText });
-    await ctx.reply(reply);
+    const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
+
+    if (isElevenLabsConfigured() && voiceId) {
+      try {
+        await ctx.sendChatAction('record_voice');
+        const audioBuffer = await getSpeech(reply, voiceId);
+        const file = Input.fromBuffer(audioBuffer, 'voice.mp3');
+        await ctx.replyWithAudio(file, { title: 'Vlad' });
+      } catch (voiceErr) {
+        console.error('ElevenLabs voice failed, sending text:', voiceErr.message);
+        await ctx.reply(reply);
+      }
+    } else {
+      await ctx.reply(reply);
+    }
+
     pushHistory(key, 'user', text);
     pushHistory(key, 'bot', reply);
   } catch (err) {
