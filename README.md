@@ -93,7 +93,7 @@ Training and inference costs depend on the base model; see [OpenAI pricing](http
 
 ## Optional
 
-- **OpenAI model:** set `OPENAI_MODEL` in `.env` (default: `gpt-4o-mini`). Ignored when `OPENAI_FINETUNED_MODEL` is set.
+- **OpenAI model:** set `OPENAI_MODEL` in `.env` (default: `gpt-5-mini`). Ignored when `OPENAI_FINETUNED_MODEL` is set.
 - **Parser input:** set `EXPORT_HTML_PATH` if your HTML file is not at `./data/messages.html`.
 
 ## Data layout

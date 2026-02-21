@@ -163,10 +163,10 @@ export async function getReply(userMessage, history = [], options = {}) {
 
   const model =
     hasImage
-      ? (process.env.OPENAI_MODEL || 'gpt-4o-mini')
+      ? (process.env.OPENAI_MODEL || 'gpt-5-mini')
       : useFinetunedModel()
         ? process.env.OPENAI_FINETUNED_MODEL.trim()
-        : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+        : (process.env.OPENAI_MODEL || 'gpt-5-mini');
 
   const useFt = useFinetunedModel();
   const maxTokens = useFt
