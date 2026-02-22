@@ -132,7 +132,7 @@ function main() {
   styleNotes.push(`Based on ${style.sampleCount} messages from the conversation.`);
 
   const samplesBlock = styleSamples.length
-    ? `\nExample phrases (match this style):\n${styleSamples.slice(0, 40).map((s) => `- ${s}`).join('\n')}`
+    ? `\nExample phrases (match this style):\n${styleSamples.slice(0, 55).map((s) => `- ${s}`).join('\n')}`
     : '';
 
   const traitsLine = process.env.PERSONA_TRAITS

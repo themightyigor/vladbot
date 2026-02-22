@@ -41,9 +41,9 @@ function loadPersona() {
   return cachedPersona;
 }
 
-const MAX_FEW_SHOT_IN_PROMPT = Math.min(Number(process.env.OPENAI_FEW_SHOT_IN_PROMPT) || 25, 35);
-const RAG_TOP_K = Math.min(Number(process.env.RAG_TOP_K) || 12, 20);
-const FEW_SHOT_WHEN_RAG = Math.min(Number(process.env.OPENAI_FEW_SHOT_WHEN_RAG) || 8, 15);
+const MAX_FEW_SHOT_IN_PROMPT = Math.min(Number(process.env.OPENAI_FEW_SHOT_IN_PROMPT) || 32, 45);
+const RAG_TOP_K = Math.min(Number(process.env.RAG_TOP_K) || 15, 25);
+const FEW_SHOT_WHEN_RAG = Math.min(Number(process.env.OPENAI_FEW_SHOT_WHEN_RAG) || 10, 18);
 
 function useFinetunedModel() {
   const m = process.env.OPENAI_FINETUNED_MODEL;
@@ -107,9 +107,13 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
+  if (!useFt && persona.styleSamples && persona.styleSamples.length > 40) {
+    const extra = persona.styleSamples.slice(40, 70).map((s) => `- ${s}`).join('\n');
+    if (extra) systemContent += `\n\nMore example phrases (match this style):\n${extra}`;
+  }
   const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   if (useFt) {
-    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Do NOT reply with just 1–2 words or one line. Write 3–6 lines per message: improvise, expand, tease, add reactions. Use his typical phrases when they fit. ${noArtifacts}`;
+    systemContent += `\n\nLength (strict): Every reply MUST be 3–6 lines (лесенка). One-word or one-line answers (Да, Ну, Пф, Хех, Красота, Топ) are FORBIDDEN. Expand, tease, add reactions, improvise—never be dry or laconic. Format: ladder style, each phrase on a new line. ${noArtifacts}`;
   } else {
     systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
   }
@@ -119,7 +123,20 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   const maxFewShot = useFt
     ? Math.min(Number(process.env.OPENAI_FINETUNED_FEW_SHOT) || 8, 12)
     : useRag ? FEW_SHOT_WHEN_RAG : MAX_FEW_SHOT_IN_PROMPT;
-  const pairsToUse = (persona.fewShotPairs || []).slice(0, maxFewShot);
+  let pairsToUse = persona.fewShotPairs || [];
+  if (useFt && pairsToUse.length > maxFewShot) {
+    const withLength = pairsToUse.map((p) => ({ ...p, _lines: (p.assistant || '').split(/\n/).length }));
+    pairsToUse = withLength
+      .filter((p) => p._lines >= 2)
+      .sort((a, b) => b._lines - a._lines)
+      .slice(0, maxFewShot)
+      .map(({ user, assistant }) => ({ user, assistant }));
+    if (pairsToUse.length < maxFewShot) {
+      pairsToUse = (persona.fewShotPairs || []).slice(0, maxFewShot);
+    }
+  } else {
+    pairsToUse = pairsToUse.slice(0, maxFewShot);
+  }
   if (pairsToUse.length > 0) {
     for (const pair of pairsToUse) {
       messages.push({ role: 'user', content: pair.user });
