@@ -60,11 +60,17 @@ async function generatePodkolDay() {
 
 export async function sendMorningMessage(telegram) {
   const chatId = process.env.MORNING_GROUP_CHAT_ID?.trim();
-  if (!chatId) return;
+  if (!chatId) {
+    console.log('Morning skipped: MORNING_GROUP_CHAT_ID not set');
+    return;
+  }
 
   const state = loadState();
   const today = todayStr();
-  if (state.lastSentDate === today) return;
+  if (state.lastSentDate === today) {
+    console.log('Morning skipped: already sent today', today);
+    return;
+  }
 
   const nextType = state.lastType === 'reaction' ? 'podkol' : 'reaction';
   let text;
@@ -74,7 +80,10 @@ export async function sendMorningMessage(telegram) {
     console.error('Morning message generate failed:', err.message);
     return;
   }
-  if (!text || !text.trim()) return;
+  if (!text || !text.trim()) {
+    console.log('Morning skipped: empty text from generator');
+    return;
+  }
 
   try {
     await telegram.sendMessage(chatId, text.trim());
