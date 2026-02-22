@@ -26,6 +26,40 @@ const ROSTIC_STYLE =
 const VASYACHAIKA_STYLE =
   '\n\nWith this interlocutor (@Vasyachaika): Reply with context for him. Make references to his excess weight (лишний вес). Call his mom fat (мама толстая). Suggest to have Obolon beer (накатать оболонь). Sometimes call him торч. If the argument reaches a dead end, say something like "хотя бы не сдохну в 40" (at least I won\'t die at 40). Stay in ladder style, Vlad\'s tone.';
 
+/** When replying to @irbzv (Игорь): he\'s айтишник, сытый; "у айтишников все просто"; suggest raf on coconut (раф на кокосовом). */
+const IGOR_STYLE =
+  '\n\nWith this interlocutor (@irbzv, Игорь): Make references to him being айтишник (IT guy) and сытый (well-off). Use the phrase "у айтишников все просто" when it fits. Suggest he have a raf on coconut (предложи выпить раф на кокосовом, раф на кокосовом). Stay in ladder style, Vlad\'s tone.';
+
+/** When replying to @adtrety (Андрей): remind him he наебывает бабок в втб (works at VTB, "обманывает бабулек" / screws over grannies at VTB). */
+const ANDREY_STYLE =
+  '\n\nWith this interlocutor (@adtrety, Андрей): Remind him that he наебывает бабок в втб (работает в ВТБ, обманывает бабулек/пенсионеров в ВТБ—подкалывай про это). Use naturally, ladder style, Vlad\'s tone.';
+
+/**
+ * Aliases for interlocutors Vlad has a special style for.
+ * Keys: nikita, rostic, vasyachaika, igor, andrey. Values: TG username (no @) or display-name parts.
+ * Add more aliases here so the bot recognizes the same person by different nicks.
+ */
+const INTERLOCUTOR_ALIASES = {
+  nikita: ['ainiy09', 'nikita', 'никита', 'никит'],
+  rostic: ['p0_jl', 'rostic', 'rostics', 'rostics love', 'ростик'],
+  vasyachaika: ['vasyachaika', 'васячайка', 'васячайк', 'вася'],
+  igor: ['irbzv', 'igor', 'игорь', 'игор'],
+  andrey: ['adtrety', 'andrey', 'андрей', 'андрей']
+};
+
+/** Resolve Telegram username or display name to a style key (nikita | rostic | vasyachaika | igor | andrey) or null. */
+function resolveInterlocutorStyle(telegramUsername, displayName) {
+  const u = (telegramUsername || '').trim().toLowerCase().replace(/^@/, '');
+  const n = (displayName || '').trim().toLowerCase();
+  for (const [style, aliases] of Object.entries(INTERLOCUTOR_ALIASES)) {
+    for (const alias of aliases) {
+      const a = alias.toLowerCase();
+      if (u === a || n === a || n.includes(a) || (a.length >= 3 && u.includes(a))) return style;
+    }
+  }
+  return null;
+}
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -91,31 +125,35 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   const quotedText = options.quotedText ?? null;
   const username = (options.username || '').trim().toLowerCase();
   const interlocutorName = options.interlocutorName ?? null;
+  const mentionedUsers = options.mentionedUsers && Array.isArray(options.mentionedUsers) ? options.mentionedUsers : [];
   const prefix = interlocutorName && interlocutorName.trim() ? (interlocutorName.trim() + ': ') : '';
 
   let systemContent = persona.systemPrompt;
   const personName = (persona.personName || '').toLowerCase();
+  const styleKey = resolveInterlocutorStyle(username, interlocutorName || '');
   if (personName.includes('тимохин') || personName.includes('влад')) {
     systemContent += VLAD_CHARACTER_TRAITS;
     systemContent += VLAD_CONFLICT_PHRASES;
-    if (username === 'p0_jl') {
-      systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор, эмигрировал). In every reply use this: tease him about having left, про сво, про тех кто свалил—подкалывай что он там на сво, контраст с теми кто остался.';
-    } else if (username === 'ainiy09') {
-      systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off, обеспеченный). In every reply mention that he is сытый or приплетай сытость, контраст сытого с обычными людьми—подкалывай про это.';
-    } else if (username === 'vasyachaika') {
+    if (styleKey === 'nikita') {
+      systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off).';
+      systemContent += NIKITA_STYLE;
+    } else if (styleKey === 'rostic') {
+      systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор). Tease him about having left, про сво.';
+      systemContent += ROSTIC_STYLE;
+    } else if (styleKey === 'vasyachaika') {
       systemContent += VASYACHAIKA_STYLE;
+    } else if (styleKey === 'igor') {
+      systemContent += IGOR_STYLE;
+    } else if (styleKey === 'andrey') {
+      systemContent += ANDREY_STYLE;
     }
   }
   if (prefix) {
     systemContent += `\n\nCurrent interlocutor: ${interlocutorName.trim()}. Adjust tone and style to how you usually reply to this person.`;
-    const nameNorm = interlocutorName.trim().toLowerCase();
-    if (nameNorm === 'nikita' || nameNorm === 'никита' || nameNorm === 'ainiy09') {
-      systemContent += NIKITA_STYLE;
-    } else if (nameNorm === 'p0_jl' || nameNorm.includes('rostic') || nameNorm.includes('rostics')) {
-      systemContent += ROSTIC_STYLE;
-    } else if (nameNorm.includes('vasyachaika') || nameNorm.includes('васячайк') || username === 'vasyachaika') {
-      systemContent += VASYACHAIKA_STYLE;
-    }
+  }
+  if (mentionedUsers.length > 0) {
+    const list = mentionedUsers.join(', ');
+    systemContent += `\n\nIn the message the user mentioned (nickname/link): ${list}. Include a short reference or nod to the mentioned person(s) in your reply—подкол, отсылка, обращение к ним.`;
   }
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;

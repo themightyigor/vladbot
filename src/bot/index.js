@@ -74,6 +74,28 @@ function getInterlocutorName(ctx) {
   return null;
 }
 
+/** Extract mentioned users from message (mention = @username, text_mention = name). Excludes bot. */
+function getMentionedUsers(ctx) {
+  const rawText = ctx.message?.text || ctx.message?.caption || '';
+  const entities = ctx.message?.entities || ctx.message?.caption_entities || [];
+  if (!rawText || !entities.length) return [];
+  const res = [];
+  for (const e of entities) {
+    if (e.type !== 'mention' && e.type !== 'text_mention') continue;
+    if (e.type === 'mention') {
+      const s = rawText.slice(e.offset, e.offset + e.length);
+      if (s && s.startsWith('@') && (!botUsername || s.toLowerCase() !== `@${botUsername.toLowerCase()}`)) {
+        res.push(s);
+      }
+    } else if (e.type === 'text_mention' && e.user) {
+      const u = e.user;
+      const name = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+      res.push(name || u.username || `id${u.id}`);
+    }
+  }
+  return [...new Set(res)];
+}
+
 function shouldRespond(ctx) {
   const type = ctx.chat?.type;
   if (type === 'private') return true;
@@ -156,10 +178,12 @@ bot.on('text', async (ctx) => {
 
   try {
     const interlocutorName = getInterlocutorName(ctx);
+    const mentionedUsers = getMentionedUsers(ctx);
     const reply = await getReply(text, history, {
       quotedText,
       interlocutorName,
-      username: ctx.from?.username ?? ''
+      username: ctx.from?.username ?? '',
+      mentionedUsers: mentionedUsers.length ? mentionedUsers : undefined
     });
     await sendReplyAndSave(ctx, key, text, reply);
   } catch (err) {
@@ -183,11 +207,13 @@ bot.on('photo', async (ctx) => {
     const imageBuffer = await downloadTelegramFile(ctx.telegram, photo.file_id);
     const promptText = caption ? stripMention(caption).trim() : '';
     const prompt = promptText || 'Что на картинке? Ответь в своём стиле (подкалывай, мат, политика).';
+    const mentionedUsers = getMentionedUsers(ctx);
     const reply = await getReply(prompt, history, {
       imageBuffer,
       imageMimeType: 'image/jpeg',
       username: ctx.from?.username ?? '',
-      interlocutorName: getInterlocutorName(ctx)
+      interlocutorName: getInterlocutorName(ctx),
+      mentionedUsers: mentionedUsers.length ? mentionedUsers : undefined
     });
     await sendReplyAndSave(ctx, key, userMsg, reply);
   } catch (err) {
