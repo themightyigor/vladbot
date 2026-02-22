@@ -109,16 +109,18 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   }
   const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   if (useFt) {
-    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
+    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Do NOT reply with just 1–2 words or one line. Write 3–6 lines per message: improvise, expand, tease, add reactions. Use his typical phrases when they fit. ${noArtifacts}`;
   } else {
     systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
   }
   messages.push({ role: 'system', content: systemContent });
 
-  if (!useFt) {
-    const useRag = ragChunks.length > 0;
-    const maxFewShot = useRag ? FEW_SHOT_WHEN_RAG : MAX_FEW_SHOT_IN_PROMPT;
-    const pairsToUse = (persona.fewShotPairs || []).slice(0, maxFewShot);
+  const useRag = ragChunks.length > 0;
+  const maxFewShot = useFt
+    ? Math.min(Number(process.env.OPENAI_FINETUNED_FEW_SHOT) || 8, 12)
+    : useRag ? FEW_SHOT_WHEN_RAG : MAX_FEW_SHOT_IN_PROMPT;
+  const pairsToUse = (persona.fewShotPairs || []).slice(0, maxFewShot);
+  if (pairsToUse.length > 0) {
     for (const pair of pairsToUse) {
       messages.push({ role: 'user', content: pair.user });
       messages.push({ role: 'assistant', content: pair.assistant });
