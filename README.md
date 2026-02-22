@@ -33,7 +33,7 @@ Telegram bot that learns a person’s style from an exported chat (HTML) and rep
 4. **Put the export(s) in the project**
 
    - **Single file:** Create a `data` folder and put your export as `data/messages.html`, or set `EXPORT_HTML_PATH` in `.env` to its path.
-   - **Multiple files:** Put all HTML files in one folder and set `EXPORT_HTML_PATH=./data/exports`, or list paths separated by commas: `EXPORT_HTML_PATH=./data/chat1.html,./data/chat2.html`.
+   - **Multiple exports / merge:** Use comma-separated paths (each can be a file or folder; folders are expanded to all `.html` inside): e.g. `EXPORT_HTML_PATH=C:\path\to\ChatExport_old,C:\path\to\ChatExport_new`. If the same person appears under different names (e.g. "Владислав Тимохин" and "Влад"), set `PERSON_NAME` to the canonical name and `PERSON_ALIASES=Влад` so all their messages are used.
 
 5. **Parse the HTML**
 
@@ -84,10 +84,11 @@ To run the bot 24/7 without your PC (deploy to a server), see **[DEPLOY.md](DEPL
 
 To use a fine-tuned model instead of base model + RAG/few-shot:
 
-1. `npm run prepare-finetune` — builds `data/training.jsonl` from your conversation (up to 5000 pairs; set `FINETUNE_MAX_EXAMPLES` to change).
-2. `npm run start-finetune-job` — uploads the file and starts a fine-tuning job on OpenAI (base model: `gpt-4o-mini-2024-07-18` by default; set `OPENAI_FINE_TUNE_BASE_MODEL` to use another fine-tunable model).
-3. Wait until the job succeeds in the [OpenAI Fine-tuning dashboard](https://platform.openai.com/fine-tuning), then copy the model name (e.g. `ft:gpt-4o-mini-2024-07-18:org:...`).
-4. In `.env` set `OPENAI_FINETUNED_MODEL=<that-model-name>` and restart the bot. The bot will use the fine-tuned model and skip RAG and few-shot examples.
+1. Set `PERSONA_BIO` and `PERSONA_TRAITS` in `.env` if you want the model to learn character and facts; they are baked into the system prompt in each training example (via `persona.json`). Run `npm run build-persona` after changing them.
+2. `npm run prepare-finetune` — builds `data/training.jsonl` from your conversation (up to 5000 pairs; set `FINETUNE_MAX_EXAMPLES` to change). Uses the system prompt from `persona.json` (including bio and traits).
+3. `npm run start-finetune-job` — uploads the file and starts a fine-tuning job on OpenAI (base model: `gpt-4o-mini-2024-07-18` by default; set `OPENAI_FINE_TUNE_BASE_MODEL` to use another fine-tunable model).
+4. Wait until the job succeeds in the [OpenAI Fine-tuning dashboard](https://platform.openai.com/fine-tuning), then copy the model name (e.g. `ft:gpt-4o-mini-2024-07-18:org:...`).
+5. In `.env` set `OPENAI_FINETUNED_MODEL=<that-model-name>` and restart the bot. The bot will use the fine-tuned model and skip RAG and few-shot examples.
 
 Training and inference costs depend on the base model; see [OpenAI pricing](https://openai.com/api/pricing).
 

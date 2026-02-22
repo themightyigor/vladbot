@@ -17,10 +17,21 @@ const RAG_INDEX_FILE = path.join(DATA_DIR, 'rag-index.json');
 const BATCH_SIZE = 100;
 const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
 
-function stripTimeAndName(text, personName) {
+function getPersonNames() {
+  const main = process.env.PERSON_NAME || 'Vlad';
+  const aliases = (process.env.PERSON_ALIASES || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return [main, ...aliases];
+}
+
+function stripTimeAndName(text, personNames) {
   if (!text || typeof text !== 'string') return text;
-  const escaped = personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim() || text;
+  const names = Array.isArray(personNames) ? personNames : [personNames];
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const trimmed = text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim();
+    if (trimmed !== text) return trimmed || text;
+  }
+  return text;
 }
 
 function getText(obj) {
@@ -29,15 +40,17 @@ function getText(obj) {
   return obj?.text || '';
 }
 
-function buildChunks(messages, personName) {
+function buildChunks(messages, personName, personNames) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
   const chunks = [];
   for (let i = 0; i < messages.length - 1; i++) {
     const curr = messages[i];
     const next = messages[i + 1];
-    if (next.author !== personName) continue;
+    if (!set.has(next.author)) continue;
+    if (curr.author === 'Unknown') continue;
     const userText = (typeof curr.text === 'string' ? curr.text : getText(curr.text)).trim();
     let vladText = (typeof next.text === 'string' ? next.text : getText(next.text)).trim();
-    vladText = stripTimeAndName(vladText, personName);
+    vladText = stripTimeAndName(vladText, personNames);
     if (!userText || !vladText) continue;
     if (userText.length > 600 || vladText.length > 600) continue;
     chunks.push({
@@ -65,9 +78,10 @@ async function main() {
     const persona = JSON.parse(fs.readFileSync(PERSONA_FILE, 'utf8'));
     personName = persona.personName || personName;
   }
+  const personNames = getPersonNames();
 
   const messages = JSON.parse(fs.readFileSync(CONVERSATION_FILE, 'utf8'));
-  const chunks = buildChunks(messages, personName);
+  const chunks = buildChunks(messages, personName, personNames);
   console.log(`Built ${chunks.length} dialogue chunks for "${personName}". Embedding...`);
 
   const openai = new OpenAI({ apiKey });

@@ -27,15 +27,27 @@ function getText(obj) {
   return obj?.text || '';
 }
 
-/** Strip leading "HH:MM PersonName " from exported message text. */
-function stripTimeAndName(text, personName) {
-  if (!text || typeof text !== 'string') return text;
-  const escaped = personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim() || text;
+function getPersonNames() {
+  const main = process.env.PERSON_NAME || 'Vlad';
+  const aliases = (process.env.PERSON_ALIASES || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return [main, ...aliases];
 }
 
-function extractStyle(messages, personName) {
-  const byPerson = messages.filter((m) => m.author === personName);
+/** Strip leading "HH:MM PersonName " for any of the person's names. */
+function stripTimeAndName(text, personNames) {
+  if (!text || typeof text !== 'string') return text;
+  const names = Array.isArray(personNames) ? personNames : [personNames];
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const trimmed = text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim();
+    if (trimmed !== text) return trimmed || text;
+  }
+  return text;
+}
+
+function extractStyle(messages, personNames) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
+  const byPerson = messages.filter((m) => set.has(m.author));
   const texts = byPerson.map((m) => (typeof m.text === 'string' ? m.text : getText(m.text))).filter(Boolean);
   const joined = texts.join(' ');
   const hasEmoji = /[\u{1F300}-\u{1F9FF}]|[\u2600-\u26FF]|[\u2700-\u27BF]/u.test(joined);
@@ -48,7 +60,8 @@ function extractStyle(messages, personName) {
   };
 }
 
-function buildPairs(messages, personName, maxPairs = 40) {
+function buildPairs(messages, personNames, maxPairs = 40) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
   const candidatePairs = [];
   for (let i = 0; i < messages.length - 1; i++) {
     const curr = messages[i];
@@ -56,11 +69,12 @@ function buildPairs(messages, personName, maxPairs = 40) {
     const currText = typeof curr.text === 'string' ? curr.text : getText(curr.text);
     const nextText = typeof next.text === 'string' ? next.text : getText(next.text);
     if (!currText || !nextText) continue;
-    if (next.author !== personName) continue;
+    if (!set.has(next.author)) continue;
+    if (curr.author === 'Unknown') continue;
     if (currText.length > 400 || nextText.length > 400) continue;
     candidatePairs.push({
       user: currText.trim(),
-      assistant: stripTimeAndName(nextText.trim(), personName),
+      assistant: stripTimeAndName(nextText.trim(), personNames),
       index: i
     });
   }
@@ -77,10 +91,11 @@ function buildPairs(messages, personName, maxPairs = 40) {
   }));
 }
 
-function buildStyleSamples(messages, personName, maxSamples = 50, minLen = 10, maxLen = 180) {
+function buildStyleSamples(messages, personNames, maxSamples = 50, minLen = 10, maxLen = 180) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
   const byPerson = messages
-    .filter((m) => m.author === personName)
-    .map((m) => stripTimeAndName((typeof m.text === 'string' ? m.text : getText(m.text)).trim(), personName))
+    .filter((m) => set.has(m.author))
+    .map((m) => stripTimeAndName((typeof m.text === 'string' ? m.text : getText(m.text)).trim(), personNames))
     .filter((t) => t.length >= minLen && t.length <= maxLen && !/^[\d:]+\s*$/.test(t));
   if (byPerson.length <= maxSamples) return byPerson;
   const step = (byPerson.length - 1) / (maxSamples - 1);
@@ -99,13 +114,14 @@ function buildStyleSamples(messages, personName, maxSamples = 50, minLen = 10, m
 
 function main() {
   const personName = process.env.PERSON_NAME || 'Vlad';
+  const personNames = getPersonNames();
   const maxPairs = Math.min(Number(process.env.PERSONA_FEW_SHOT_PAIRS) || 40, 60);
   const maxStyleSamples = Math.min(Number(process.env.PERSONA_STYLE_SAMPLES) || 50, 80);
   const messages = loadConversation();
 
-  const style = extractStyle(messages, personName);
-  const pairs = buildPairs(messages, personName, maxPairs);
-  const styleSamples = buildStyleSamples(messages, personName, maxStyleSamples);
+  const style = extractStyle(messages, personNames);
+  const pairs = buildPairs(messages, personNames, maxPairs);
+  const styleSamples = buildStyleSamples(messages, personNames, maxStyleSamples);
 
   const styleNotes = [];
   if (style.hasEmoji) styleNotes.push('Uses emoji naturally.');

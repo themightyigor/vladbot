@@ -64,6 +64,16 @@ function getQuotedText(ctx) {
   return text.trim() || null;
 }
 
+function getInterlocutorName(ctx) {
+  const from = ctx.from;
+  if (!from) return null;
+  const first = (from.first_name || '').trim();
+  const last = (from.last_name || '').trim();
+  if (first || last) return [first, last].filter(Boolean).join(' ') || null;
+  if (from.username) return from.username;
+  return null;
+}
+
 function shouldRespond(ctx) {
   const type = ctx.chat?.type;
   if (type === 'private') return true;
@@ -145,7 +155,12 @@ bot.on('text', async (ctx) => {
   await ctx.sendChatAction('typing');
 
   try {
-    const reply = await getReply(text, history, { quotedText, username: ctx.from?.username ?? '' });
+    const interlocutorName = getInterlocutorName(ctx);
+    const reply = await getReply(text, history, {
+      quotedText,
+      interlocutorName,
+      username: ctx.from?.username ?? ''
+    });
     await sendReplyAndSave(ctx, key, text, reply);
   } catch (err) {
     console.error(err);
@@ -171,7 +186,8 @@ bot.on('photo', async (ctx) => {
     const reply = await getReply(prompt, history, {
       imageBuffer,
       imageMimeType: 'image/jpeg',
-      username: ctx.from?.username ?? ''
+      username: ctx.from?.username ?? '',
+      interlocutorName: getInterlocutorName(ctx)
     });
     await sendReplyAndSave(ctx, key, userMsg, reply);
   } catch (err) {
@@ -190,7 +206,8 @@ bot.on('sticker', async (ctx) => {
   if (sticker.is_animated) {
     try {
       const reply = await getReply('Юзер прислал анимированный стикер. Ответь в своём стиле что такие не смотришь.', history, {
-        username: ctx.from?.username ?? ''
+        username: ctx.from?.username ?? '',
+        interlocutorName: getInterlocutorName(ctx)
       });
       await sendReplyAndSave(ctx, key, '[аним. стикер]', reply);
     } catch (err) {
@@ -207,7 +224,8 @@ bot.on('sticker', async (ctx) => {
     const reply = await getReply('Что на стикере? Ответь в своём стиле (подкалывай, мат, политика).', history, {
       imageBuffer,
       imageMimeType: 'image/webp',
-      username: ctx.from?.username ?? ''
+      username: ctx.from?.username ?? '',
+      interlocutorName: getInterlocutorName(ctx)
     });
     await sendReplyAndSave(ctx, key, '[стикер]', reply);
   } catch (err) {

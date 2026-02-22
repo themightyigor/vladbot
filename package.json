@@ -14,6 +14,8 @@
     "build-rag": "node src/rag/buildIndex.js",
     "prepare-finetune": "node src/finetune/prepareTrainingData.js",
     "start-finetune-job": "node src/finetune/startJob.js",
+    "attitude-table": "node src/scripts/attitudeTable.js",
+    "merge-exports": "node scripts/mergeChatExports.js",
     "bot": "node src/index.js"
   },
   "dependencies": {

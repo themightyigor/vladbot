@@ -102,10 +102,9 @@ function parseMessages($) {
 }
 
 /**
- * Resolve EXPORT_HTML_PATH to a list of absolute file paths.
- * - Single file: that file
- * - Comma-separated paths: each path trimmed
- * - Directory: all .html files inside it (one level)
+ * Resolve EXPORT_HTML_PATH to a flat list of .html file paths.
+ * - Single path: file -> that file; directory -> all .html inside
+ * - Comma-separated: each path expanded (dir -> all .html, file -> that file), then merged
  */
 function resolveInputPaths() {
   const raw = process.env.EXPORT_HTML_PATH || DEFAULT_INPUT;
@@ -116,21 +115,27 @@ function resolveInputPaths() {
     return path.isAbsolute(trimmed) ? trimmed : path.join(cwd, trimmed);
   };
 
-  if (raw.includes(',')) {
-    return raw.split(',').map((p) => resolveOne(p));
+  const rawPaths = raw.includes(',')
+    ? raw.split(',').map((p) => resolveOne(p))
+    : [resolveOne(raw)];
+
+  const out = [];
+  for (const resolved of rawPaths) {
+    if (!fs.existsSync(resolved)) {
+      out.push(resolved);
+      continue;
+    }
+    const stat = fs.statSync(resolved);
+    if (stat.isDirectory()) {
+      const files = fs.readdirSync(resolved)
+        .filter((f) => f.toLowerCase().endsWith('.html'))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      for (const f of files) out.push(path.join(resolved, f));
+    } else {
+      out.push(resolved);
+    }
   }
-
-  const resolved = resolveOne(raw);
-  const stat = fs.existsSync(resolved) && fs.statSync(resolved);
-
-  if (stat?.isDirectory()) {
-    const files = fs.readdirSync(resolved)
-      .filter((f) => f.toLowerCase().endsWith('.html'))
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    return files.map((f) => path.join(resolved, f));
-  }
-
-  return [resolved];
+  return out;
 }
 
 function main() {
@@ -151,12 +156,25 @@ function main() {
     allMessages.push(...messages.map((m) => ({ ...m, _source: path.basename(filePath) })));
   }
 
-  const messages = allMessages
+  let messages = allMessages
     .sort((a, b) => {
       if (!a.date || !b.date) return 0;
       return String(a.date).localeCompare(String(b.date));
     })
     .map(({ _source, ...m }) => m);
+
+  const canonicalName = process.env.PERSON_NAME && process.env.PERSON_NAME.trim();
+  let aliases = (process.env.PERSON_ALIASES || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (canonicalName && canonicalName.includes('Тимохин') && !aliases.includes('Влад')) {
+    aliases = [...aliases, 'Влад'];
+  }
+  if (canonicalName && aliases.length > 0) {
+    const aliasSet = new Set(aliases);
+    messages = messages.map((m) =>
+      aliasSet.has(m.author) ? { ...m, author: canonicalName } : m
+    );
+    console.log(`Normalized author: "${aliases.join('", "')}" -> "${canonicalName}"`);
+  }
 
   if (messages.length === 0) {
     console.error('No messages parsed from any file. Your HTML structure may differ.');

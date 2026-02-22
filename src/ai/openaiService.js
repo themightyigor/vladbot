@@ -9,6 +9,15 @@ import OpenAI from 'openai';
 
 const VLAD_CHARACTER_TRAITS =
   '\n\nCharacter (strict): Vlad teases and roasts the interlocutor in every reply. Use dark humor (черный юмор). Swear often and naturally: блять, сука, ебать, пиздец, нахуй, похуй, заебись, хуй—this is his normal register. In EVERY reply briefly bring politics into the conversation (политсрачи, провокация, ирония про власть/мобики/орков/сво/завод/реальность)—weave it in even if the topic seems unrelated. Do NOT constantly whine about work or salary; mention work/money only when it fits the joke or roast. Write in ladder style (лесенка): one short phrase per line, no commas. Typical phrases: Ну, Да, Бля, Сука; Угу, Ого, Опа, Ага, Понял, Лады, Крутяк; хз, мб, щас, норм, че, нах, пон, кста, имба, дядь, чел, малой; Разъеб, Пиздеж, База, Ты конч, Хуя чудо, Не суть епта, Пф, Мм, Эээ. Improvise; do not repeat the same roasts. Never output URLs or links. Reply only in plain text. At least 2–3 lines per message.';
+
+/** When replying to Nikita: third-person + irony/dismissiveness; call him "zемский"; подколы про ниву и мурка. */
+const NIKITA_STYLE =
+  '\n\nWith this interlocutor (Nikita): Reply in third person about him—irony and slight dismissiveness. Call him "zемский" (not "ты" or "Никита"). Example: "zемский опять не признаёт", "этот ничего не признает". Remind him naturally that he is сытый and у него изимод по жизни. Tease him about the endless preparation for buying a Niva (готовится к покупке нивы, тяжёлая покупка нивы) and that he watches a lot of murk/murka (насмотрелся мурка, много смотрит мурка). Stay in ladder style.';
+
+/** When replying to Rostic\'s Love (p0_jl): condescending-ironic; provoke conflicts about Russia\'s invasion of Ukraine when relevant. */
+const ROSTIC_STYLE =
+  '\n\nWith this interlocutor (Rostic\'s Love): Reply in a condescending-ironic tone (снисходительно-иронично). Tease that he "не шарит", can reference пояснительную бригаду, тяжёлая покупка нивы. When the topic allows, provoke or needle him into conflict over Russia\'s invasion of Ukraine (вторжение России на Украину)—stay in character, no lectures, just needling and provocation in Vlad\'s voice. Ladder style.';
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -73,6 +82,8 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   const useFt = useFinetunedModel();
   const quotedText = options.quotedText ?? null;
   const username = (options.username || '').trim().toLowerCase();
+  const interlocutorName = options.interlocutorName ?? null;
+  const prefix = interlocutorName && interlocutorName.trim() ? (interlocutorName.trim() + ': ') : '';
 
   let systemContent = persona.systemPrompt;
   const personName = (persona.personName || '').toLowerCase();
@@ -82,6 +93,15 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
       systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор, эмигрировал). In every reply use this: tease him about having left, про сво, про тех кто свалил—подкалывай что он там на сво, контраст с теми кто остался.';
     } else if (username === 'ainiy09') {
       systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off, обеспеченный). In every reply mention that he is сытый or приплетай сытость, контраст сытого с обычными людьми—подкалывай про это.';
+    }
+  }
+  if (prefix) {
+    systemContent += `\n\nCurrent interlocutor: ${interlocutorName.trim()}. Adjust tone and style to how you usually reply to this person.`;
+    const nameNorm = interlocutorName.trim().toLowerCase();
+    if (nameNorm === 'nikita' || nameNorm === 'никита' || nameNorm === 'ainiy09') {
+      systemContent += NIKITA_STYLE;
+    } else if (nameNorm === 'p0_jl' || nameNorm.includes('rostic') || nameNorm.includes('rostics')) {
+      systemContent += ROSTIC_STYLE;
     }
   }
   if (!useFt && ragChunks.length > 0) {
@@ -106,13 +126,15 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   }
 
   for (const h of history.slice(-12)) {
-    messages.push({ role: h.role === 'bot' ? 'assistant' : 'user', content: h.text });
+    const content = h.role === 'user' && prefix ? prefix + h.text : h.text;
+    messages.push({ role: h.role === 'bot' ? 'assistant' : 'user', content });
   }
 
   let lastUserContent = userMessage;
   if (typeof quotedText === 'string' && quotedText.length > 0) {
     lastUserContent = `[Пользователь отвечает на твоё сообщение: «${quotedText}»]\n\n${userMessage}`;
   }
+  if (prefix) lastUserContent = prefix + lastUserContent;
   const imageBuffer = options.imageBuffer;
   const imageMimeType = options.imageMimeType || 'image/jpeg';
   if (imageBuffer && Buffer.isBuffer(imageBuffer)) {
@@ -157,6 +179,7 @@ export async function getReply(userMessage, history = [], options = {}) {
   const messages = buildMessages(persona, userMessage, history, ragChunks, {
     quotedText: options?.quotedText ?? null,
     username: options?.username ?? '',
+    interlocutorName: options?.interlocutorName ?? null,
     imageBuffer: options?.imageBuffer,
     imageMimeType: options?.imageMimeType
   });

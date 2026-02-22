@@ -25,10 +25,22 @@ function getText(obj) {
   return obj?.text || '';
 }
 
-function stripTimeAndName(text, personName) {
+function getPersonNames() {
+  const main = process.env.PERSON_NAME || 'Vlad';
+  let aliases = (process.env.PERSON_ALIASES || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (main.includes('Тимохин') && !aliases.includes('Влад')) aliases = [...aliases, 'Влад'];
+  return [main, ...aliases];
+}
+
+function stripTimeAndName(text, personNames) {
   if (!text || typeof text !== 'string') return text;
-  const escaped = personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim() || text;
+  const names = Array.isArray(personNames) ? personNames : [personNames];
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const trimmed = text.replace(new RegExp(`^\\d{1,2}:\\d{2}\\s+${escaped}\\s*`, 'i'), '').trim();
+    if (trimmed !== text) return trimmed || text;
+  }
+  return text;
 }
 
 function roughTokenCount(str) {
@@ -41,18 +53,22 @@ function trimToTokens(str, maxTokens) {
   return str.slice(0, approx).trim();
 }
 
-function buildExamples(messages, personName, systemPrompt) {
+function buildExamples(messages, personNames, systemPrompt) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
   const examples = [];
   for (let i = 0; i < messages.length - 1 && examples.length < MAX_EXAMPLES; i++) {
     const curr = messages[i];
     const next = messages[i + 1];
-    if (next.author !== personName) continue;
+    if (!set.has(next.author)) continue;
+    if (curr.author === 'Unknown') continue;
     const userText = (typeof curr.text === 'string' ? curr.text : getText(curr.text)).trim();
     let assistantText = (typeof next.text === 'string' ? next.text : getText(next.text)).trim();
-    assistantText = stripTimeAndName(assistantText, personName);
+    assistantText = stripTimeAndName(assistantText, personNames);
     if (!userText || !assistantText) continue;
     if (userText.length > 2000 || assistantText.length > 1500) continue;
-    const userTrimmed = trimToTokens(userText, MAX_USER_TOKENS);
+    const interlocutorPrefix = curr.author + ': ';
+    const userWithAuthor = interlocutorPrefix + userText;
+    const userTrimmed = trimToTokens(userWithAuthor, MAX_USER_TOKENS);
     const assistantTrimmed = trimToTokens(assistantText, MAX_ASSISTANT_TOKENS);
     examples.push({
       messages: [
@@ -83,7 +99,8 @@ function main() {
   }
 
   const messages = JSON.parse(fs.readFileSync(CONVERSATION_FILE, 'utf8'));
-  const examples = buildExamples(messages, personName, systemPrompt);
+  const personNames = getPersonNames();
+  const examples = buildExamples(messages, personNames, systemPrompt);
 
   if (examples.length < 10) {
     console.error('Need at least 10 training examples. Got', examples.length);
