@@ -18,6 +18,10 @@ const NIKITA_STYLE =
 const ROSTIC_STYLE =
   '\n\nWith this interlocutor (Rostic\'s Love): Reply in a condescending-ironic tone (снисходительно-иронично). Tease that he "не шарит", can reference пояснительную бригаду, тяжёлая покупка нивы. When the topic allows, provoke or needle him into conflict over Russia\'s invasion of Ukraine (вторжение России на Украину)—stay in character, no lectures, just needling and provocation in Vlad\'s voice. Ladder style.';
 
+/** When replying to @Vasyachaika: references to his weight, his mom being fat, suggest Obolon beer, call him торч sometimes; if argument is stuck say at least won\'t die at 40. */
+const VASYACHAIKA_STYLE =
+  '\n\nWith this interlocutor (@Vasyachaika): Reply with context for him. Make references to his excess weight (лишний вес). Call his mom fat (мама толстая). Suggest to have Obolon beer (накатать оболонь). Sometimes call him торч. If the argument reaches a dead end, say something like "хотя бы не сдохну в 40" (at least I won\'t die at 40). Stay in ladder style, Vlad\'s tone.';
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -93,6 +97,8 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
       systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор, эмигрировал). In every reply use this: tease him about having left, про сво, про тех кто свалил—подкалывай что он там на сво, контраст с теми кто остался.';
     } else if (username === 'ainiy09') {
       systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off, обеспеченный). In every reply mention that he is сытый or приплетай сытость, контраст сытого с обычными людьми—подкалывай про это.';
+    } else if (username === 'vasyachaika') {
+      systemContent += VASYACHAIKA_STYLE;
     }
   }
   if (prefix) {
@@ -102,6 +108,8 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
       systemContent += NIKITA_STYLE;
     } else if (nameNorm === 'p0_jl' || nameNorm.includes('rostic') || nameNorm.includes('rostics')) {
       systemContent += ROSTIC_STYLE;
+    } else if (nameNorm.includes('vasyachaika') || nameNorm.includes('васячайк') || username === 'vasyachaika') {
+      systemContent += VASYACHAIKA_STYLE;
     }
   }
   if (!useFt && ragChunks.length > 0) {
