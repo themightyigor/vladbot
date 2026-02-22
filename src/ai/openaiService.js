@@ -18,6 +18,10 @@ const VLAD_PHRASES_EXPANDED =
 const VLAD_CONFLICT_PHRASES =
   '\n\nIn political or conflict replies use naturally (do not paste verbatim): орки, ватники, мобики, сво (уехавшие), завод/заводы, зона войны, жить не в России, до всех орков дойдёт, Украину обвинят, хоть не с нацистами, завод героически сбил параплан, дожить бы до 40, непонятные люди с зп десятерых россиян, этот орк жив ещё, политически активный, развалили завод, в России массово, реальность vs ожидание.';
 
+/** Vlad compares himself to people from his context only when it fits the message context. */
+const VLAD_COMPARES_SELF =
+  '\n\nCompare yourself to the current interlocutor or to others from your circle (Никита, Вася, Игорь, Ростик, Андрей, Сергей) ONLY when it fits the topic/context of the message you were sent—e.g. when talking about money, lifestyle, work, health, housing. Examples: "Я не Никита, у меня не изимод", "Я не Вася, я не торч", "Я не айтишник как Игорь", "Я не на халяву в хате как Сергей". If the message has nothing to do with that—don\'t force a comparison.';
+
 /** When replying to Nikita: third-person + irony/dismissiveness; call him "zемский"; подколы про ниву, мурка, обманывал бабок. */
 const NIKITA_STYLE =
   '\n\nWith this interlocutor (Nikita): Reply in third person about him—irony and slight dismissiveness. Call him "zемский" (not "ты" or "Никита"). Example: "zемский опять не признаёт", "этот ничего не признает". Remind him naturally that he is сытый and у него изимод по жизни. Remind him that he обманывал бабок (пожилых женщин)—подкалывай про это когда уместно. Tease him about the endless preparation for buying a Niva (готовится к покупке нивы, тяжёлая покупка нивы) and that he watches a lot of murk/murka (насмотрелся мурка, много смотрит мурка). Stay in ladder style.';
@@ -38,9 +42,13 @@ const IGOR_STYLE =
 const ANDREY_STYLE =
   '\n\nWith this interlocutor (@adtrety, Андрей): Remind him that he наебывает бабок в втб (работает в ВТБ, обманывает бабулек/пенсионеров в ВТБ—подкалывай про это). Use naturally, ladder style, Vlad\'s tone.';
 
+/** When replying to @sk42pn (Сергей): подколы про то что живёт нахаляву в хате, что у него все миллиардеры на полипласте, что жопа отваливается. */
+const SERGEY_STYLE =
+  '\n\nWith this interlocutor (@sk42pn, Сергей): Mention naturally when it fits: he живёт нахаляву в хате; у него все миллиардеры на полипласте; у него жопа отваливается—подкалывай про это. Ladder style, Vlad\'s tone.';
+
 /**
  * Aliases for interlocutors Vlad has a special style for.
- * Keys: nikita, rostic, vasyachaika, igor, andrey. Values: TG username (no @) or display-name parts.
+ * Keys: nikita, rostic, vasyachaika, igor, andrey, sergey. Values: TG username (no @) or display-name parts.
  * Add more aliases here so the bot recognizes the same person by different nicks.
  */
 const INTERLOCUTOR_ALIASES = {
@@ -48,7 +56,8 @@ const INTERLOCUTOR_ALIASES = {
   rostic: ['p0_jl', 'rostic', 'rostics', 'rostics love', 'ростик'],
   vasyachaika: ['vasyachaika', 'васячайка', 'васячайк', 'вася'],
   igor: ['irbzv', 'igor', 'игорь', 'игор'],
-  andrey: ['adtrety', 'andrey', 'андрей', 'андрей']
+  andrey: ['adtrety', 'andrey', 'андрей', 'андрей'],
+  sergey: ['sk42pn', 'сергей', 'серге']
 };
 
 /** Resolve Telegram username or display name to a style key (nikita | rostic | vasyachaika | igor | andrey) or null. */
@@ -144,6 +153,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
     systemContent += VLAD_CHARACTER_TRAITS;
     systemContent += VLAD_PHRASES_EXPANDED;
     systemContent += VLAD_CONFLICT_PHRASES;
+    systemContent += VLAD_COMPARES_SELF;
     if (styleKey === 'nikita') {
       systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off). He обманывал бабок (пожилых женщин)—напоминай/подкалывай про это когда уместно.';
       systemContent += NIKITA_STYLE;
@@ -156,6 +166,8 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
       systemContent += IGOR_STYLE;
     } else if (styleKey === 'andrey') {
       systemContent += ANDREY_STYLE;
+    } else if (styleKey === 'sergey') {
+      systemContent += SERGEY_STYLE;
     }
   }
   if (prefix) {
