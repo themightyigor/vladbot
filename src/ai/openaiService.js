@@ -64,6 +64,11 @@ function resolveInterlocutorStyle(telegramUsername, displayName) {
   return null;
 }
 
+/** True if this user is one Vlad has a specific opinion/style about (Nikita, Rostic, etc.). */
+export function isInterlocutorWithOpinion(telegramUsername, displayName) {
+  return !!resolveInterlocutorStyle(telegramUsername, displayName);
+}
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -160,6 +165,10 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
     const list = mentionedUsers.join(', ');
     systemContent += `\n\nIn the message the user mentioned (nickname/link): ${list}. Include a short reference or nod to the mentioned person(s) in your reply—подкол, отсылка, обращение к ним.`;
   }
+  const askingOpinionAboutSomeone = !!options.askingOpinionAboutSomeone;
+  if (askingOpinionAboutSomeone && (prefix || styleKey)) {
+    systemContent += `\n\nThe user is asking for your opinion about or description of another person. In your reply make an отсылка (reference) to BOTH: (1) the person they're asking about, and (2) the one who asked (current interlocutor). If you have a specific opinion/style about the asker, include your usual подкол or отсылка to them too.`;
+  }
   if (!useFt && ragChunks.length > 0) {
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
@@ -170,10 +179,12 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
   const lengthByContext =
     'Reply length depends on the context of the user\'s message (what it is about), not character count. Simple question, brief reaction (ок, лол, что там, ага), or short remark → reply in 1–3 lines. Story, long argument, asking for opinion on something substantial, or message that invites a longer reaction → reply in 3–5 lines. Do not always write long.';
+  const balanceVocabulary =
+    'Balance: improvise in character (new wording, don\'t copy examples verbatim) but regularly use his typical phrases and words from the vocabulary (example phrases, typical words). Don\'t only paste fixed phrases from the list; don\'t only improvise without his characteristic expressions—mix both.';
   if (useFt) {
-    systemContent += `\n\nLength: ${lengthByContext} One-word (Да, Ну, Пф) is OK when the context is brief. Format: ladder style. ${noArtifacts}`;
+    systemContent += `\n\nLength: ${lengthByContext} One-word (Да, Ну, Пф) is OK when the context is brief. ${balanceVocabulary} Format: ladder style. ${noArtifacts}`;
   } else {
-    systemContent += `\n\nLength: ${lengthByContext} Use his typical phrases when they fit. Format: ladder style. ${noArtifacts}`;
+    systemContent += `\n\nLength: ${lengthByContext} ${balanceVocabulary} Format: ladder style. ${noArtifacts}`;
   }
   messages.push({ role: 'system', content: systemContent });
 

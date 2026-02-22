@@ -119,6 +119,23 @@ function shouldRespondMedia(ctx, captionOrText = '') {
   return false;
 }
 
+/** True if the message is asking to describe/characterize another person (e.g. "опиши Игоря", "какой Никита"). */
+function isAskingToDescribeSomeone(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /опиши\s+(?:мне\s+)?(?:как\s+)?\w+/i,
+    /(?:какой|какая|какое)\s+(?:он|она|он\s+\w+|\w+)\s+(?:как\s+)?(?:тебе|тебя)/i,
+    /расскажи\s+(?:мне\s+)?(?:про|об|о)\s+\w+/i,
+    /(?:что|как)\s+думаешь\s+(?:об?|про)\s+\w+/i,
+    /охарактеризуй\s+\w+/i,
+    /(?:как\s+тебе|как\s+тебя)\s+\w+/i,
+    /как\s+тебе\s+\w+/i,
+    /(?:опиши|охарактеризуй)\s+\w+/i
+  ];
+  return patterns.some((re) => re.test(t));
+}
+
 async function downloadTelegramFile(telegram, fileId) {
   const file = await telegram.getFile(fileId);
   const token = process.env.BOT_TOKEN;
@@ -174,17 +191,19 @@ bot.on('text', async (ctx) => {
   const key = historyKey(ctx);
   const history = getHistory(key).map((m) => ({ role: m.role, text: m.text }));
   const quotedText = getQuotedText(ctx);
+  const interlocutorName = getInterlocutorName(ctx);
+  const mentionedUsers = getMentionedUsers(ctx);
+  const askingOpinionAboutSomeone = isAskingToDescribeSomeone(text);
 
   await ctx.sendChatAction('typing');
 
   try {
-    const interlocutorName = getInterlocutorName(ctx);
-    const mentionedUsers = getMentionedUsers(ctx);
     const reply = await getReply(text, history, {
       quotedText,
       interlocutorName,
       username: ctx.from?.username ?? '',
-      mentionedUsers: mentionedUsers.length ? mentionedUsers : undefined
+      mentionedUsers: mentionedUsers.length ? mentionedUsers : undefined,
+      askingOpinionAboutSomeone
     });
     await sendReplyAndSave(ctx, key, text, reply);
   } catch (err) {
