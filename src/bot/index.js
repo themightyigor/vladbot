@@ -295,7 +295,16 @@ export async function runBot() {
   const me = await bot.telegram.getMe();
   botUsername = me.username;
   botId = me.id;
-  await bot.launch();
+  try {
+    await bot.launch();
+  } catch (err) {
+    if (err.response?.error_code === 409 || err.message?.includes('409')) {
+      console.error(
+        'Telegram 409: Only one bot instance can run. Stop the other (e.g. local "npm start", or set Railway to 1 replica, or another deployment).'
+      );
+    }
+    throw err;
+  }
   console.log('Bot is running (long polling). Username:', botUsername);
   startMorningScheduler(bot.telegram);
   process.once('SIGINT', () => bot.stop('SIGINT'));

@@ -119,11 +119,15 @@ function scheduleNext(telegram) {
     await sendMorningMessage(telegram);
     scheduleNext(telegram);
   }, delay);
-  console.log('Next morning message at', next.toISOString());
+  console.log('Next morning message at', next.toISOString(), '(server time)');
 }
 
 export function startMorningScheduler(telegram) {
   const chatId = process.env.MORNING_GROUP_CHAT_ID?.trim();
-  if (!chatId) return;
+  if (!chatId) {
+    console.log('Morning scheduler: disabled (MORNING_GROUP_CHAT_ID not set)');
+    return;
+  }
+  console.log('Morning scheduler: enabled for chat', chatId);
   scheduleNext(telegram);
 }
