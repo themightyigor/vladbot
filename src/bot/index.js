@@ -295,16 +295,32 @@ export async function runBot() {
   const me = await bot.telegram.getMe();
   botUsername = me.username;
   botId = me.id;
-  try {
-    await bot.launch();
-  } catch (err) {
-    if (err.response?.error_code === 409 || err.message?.includes('409')) {
-      console.error(
-        'Telegram 409: Only one bot instance can run. Stop the other (e.g. local "npm start", or set Railway to 1 replica, or another deployment).'
-      );
+
+  const maxLaunchAttempts = 3;
+  const conflictWaitMs = 20000;
+
+  for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
+    try {
+      await bot.launch();
+      break;
+    } catch (err) {
+      const is409 = err.response?.error_code === 409 || err.message?.includes('409');
+      if (is409 && attempt < maxLaunchAttempts) {
+        console.warn(
+          `Telegram 409 (attempt ${attempt}/${maxLaunchAttempts}): previous getUpdates may still be held. Waiting ${conflictWaitMs / 1000}s before retry...`
+        );
+        await new Promise((r) => setTimeout(r, conflictWaitMs));
+        continue;
+      }
+      if (is409) {
+        console.error(
+          'Telegram 409: Only one bot instance can run. Stop the other (e.g. local "npm start", or set Railway to 1 replica), or wait ~1 min and redeploy.'
+        );
+      }
+      throw err;
     }
-    throw err;
   }
+
   console.log('Bot is running (long polling). Username:', botUsername);
   startMorningScheduler(bot.telegram);
   process.once('SIGINT', () => bot.stop('SIGINT'));
