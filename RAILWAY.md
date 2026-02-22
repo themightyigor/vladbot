@@ -38,6 +38,8 @@ In your Railway service → **Variables** tab, add:
 | `OPENAI_FINETUNED_MODEL` | No | Only if you use a fine-tuned model |
 | Others | No | See `.env.example` |
 
+**Чтобы реже ловить 409 при деплое** (два инстанса бота одновременно): настрой **Deployment Teardown** в сервисе (Settings → «Configure old deployment termination when a new one is started», [Docs](https://docs.railway.com/deployments/deployment-teardown)): **Draining time** = 10 (секунд). Тогда старый процесс после SIGTERM получит 10 секунд на корректное завершение (`bot.stop()` и освобождение getUpdates). То же можно задать переменной `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=10`. Overlap оставь 0. Новый инстанс при 409 сам делает несколько попыток с паузой (см. код).
+
 You can paste from `.env` via **Add variables** → **Raw editor** (do not commit `.env`).
 
 ## 3. Deploy
@@ -55,6 +57,20 @@ In Railway: your service → **Deployments** → latest → **View logs**. You s
 - `Bot is running (long polling). Username: @YourBot`
 
 If you see `BOT_TOKEN is not set` or `OPENAI_API_KEY is not set`, add them in **Variables**. If you see `Persona not built`, commit `data/persona.json` (see step 0).
+
+## 5. (Optional) Утреннее сообщение по Cron
+
+Чтобы Влад раз в день писал в группу в **фиксированное время**, добавь второй сервис — Cron:
+
+1. В том же проекте: **New** → **Empty Service** (или **GitHub Repo** с тем же репо).
+2. Подключи тот же репозиторий, что и у бота.
+3. **Settings** сервиса:
+   - **Start Command:** `node scripts/sendMorning.js`
+   - **Cron Schedule:** расписание в формате crontab (UTC). Пример: `0 5 * * *` — каждый день в 05:00 UTC (08:00 МСК).
+4. **Variables:** те же, что у бота: `BOT_TOKEN`, `OPENAI_API_KEY`, `MORNING_GROUP_CHAT_ID`. Остальные по желанию.
+5. **Volume (рекомендуется):** добавь volume и смонтируй в `data/`, чтобы `morning_state.json` сохранялся между запусками (чередование «реакция на вчера» / «подкол дня»). Без volume состояние сбрасывается при каждом новом контейнере.
+
+Сервис по крону не держит процесс: он запускает скрипт по расписанию, скрипт отправляет одно сообщение и завершается. [Cron Jobs в Railway](https://docs.railway.com/cron-jobs).
 
 ## Note on `data/`
 
