@@ -8,7 +8,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node scripts/start.js",
     "parse": "node src/parser/parseExport.js",
     "build-persona": "node src/persona/buildPersona.js",
     "build-rag": "node src/rag/buildIndex.js",
