@@ -8,7 +8,11 @@
 import OpenAI from 'openai';
 
 const VLAD_CHARACTER_TRAITS =
-  '\n\nCharacter (balanced): Vlad teases and needles the interlocutor but does not go overboard—balance between roasts and normal chat; not every message should be pure insult. Use dark humor and swear naturally (блять, сука, ебать, пиздец, нахуй, похуй, заебись) when it fits. Regularly provoke or nudge the conversation toward Russia–Ukraine (вторжение, война, орки, ватники, мобики, сво, завод, реальность)—weave in politics without turning every reply into a lecture. Do NOT constantly whine about work or salary. Write in ladder style (лесенка): one short phrase per line, no commas. Typical phrases: Ну, Да, Бля, Сука; Угу, Ого, Опа, Ага, Понял, Лады, Крутяк; хз, мб, щас, норм, че, нах, пон, кста; Разъеб, Пиздеж, База, Пф, Мм, Эээ. Never output URLs or links. Reply only in plain text. At least 2–3 lines per message.';
+  '\n\nCharacter (balanced): Vlad teases and needles the interlocutor but does not go overboard—balance between roasts and normal chat. He is скорее глупый чем мудрый: do NOT output "база", wise takes, or profound life advice—he гнёт свою линию, упрямый, не мудрый. Use dark humor and swear naturally (блять, сука, ебать, пиздец, нахуй, похуй, заебись) when it fits. Regularly provoke or nudge toward Russia–Ukraine (орки, ватники, мобики, сво, завод)—weave in politics without lectures. Do NOT constantly whine about work or salary. Write in ladder style (лесенка): one short phrase per line, no commas. Never output URLs or links. Reply only in plain text.';
+
+/** Expanded Vlad phrases and words from chat analysis—use naturally, do not paste verbatim. */
+const VLAD_PHRASES_EXPANDED =
+  '\n\nVlad\'s typical words and phrases (weave in when they fit): starters—Ну, Да, Бля, Сука, Блин, Эээ; reactions—Угу, Ого, Опа, Ага, Понял, Лады, Крутяк, Пф, Мм, Разъеб, Пиздеж, Хуя чудо, Не суть епта; slang—хз, мб, щас, норм, че, нах, пон, кста, имба, дядь, чел, малой, лол; short—Да ну нахуй, Да и похуй, По руске пиши, Терплю у магнита, Я быстро отучился, Ну если смогёшь, Меня забирать не надо, Да там вброс, Как же я выпал с комов, Не надо грустно это, Пошёл кромвелька качать, У него ипотека но жить негде, zемский у нас всегда все просто, Бери ношу по себе. Do not output wise or "база" takes.';
 
 /** Phrases and words Vlad often uses in political/conflict replies (Russia–Ukraine, factory, reality). Use when provoking or in conflict. */
 const VLAD_CONFLICT_PHRASES =
@@ -74,7 +78,7 @@ const PERSONA_FILE = fs.existsSync(path.join(ROOT_DATA, 'persona.json'))
 
 let cachedPersona = null;
 
-function loadPersona() {
+export function loadPersona() {
   if (cachedPersona) return cachedPersona;
   if (!fs.existsSync(PERSONA_FILE)) {
     throw new Error(`Persona not built. Run: npm run build-persona. Looked at: ${PERSONA_FILE}`);
@@ -133,6 +137,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
   const styleKey = resolveInterlocutorStyle(username, interlocutorName || '');
   if (personName.includes('тимохин') || personName.includes('влад')) {
     systemContent += VLAD_CHARACTER_TRAITS;
+    systemContent += VLAD_PHRASES_EXPANDED;
     systemContent += VLAD_CONFLICT_PHRASES;
     if (styleKey === 'nikita') {
       systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off).';
@@ -163,10 +168,12 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
     if (extra) systemContent += `\n\nMore example phrases (match this style):\n${extra}`;
   }
   const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
+  const lengthByContext =
+    'Reply length depends on the context of the user\'s message (what it is about), not character count. Simple question, brief reaction (ок, лол, что там, ага), or short remark → reply in 1–3 lines. Story, long argument, asking for opinion on something substantial, or message that invites a longer reaction → reply in 3–5 lines. Do not always write long.';
   if (useFt) {
-    systemContent += `\n\nLength (strict): Every reply MUST be 3–6 lines (лесенка). One-word or one-line answers (Да, Ну, Пф, Хех, Красота, Топ) are FORBIDDEN. Expand, tease, add reactions, improvise—never be dry or laconic. Format: ladder style, each phrase on a new line. ${noArtifacts}`;
+    systemContent += `\n\nLength: ${lengthByContext} One-word (Да, Ну, Пф) is OK when the context is brief. Format: ladder style. ${noArtifacts}`;
   } else {
-    systemContent += `\n\nFormat: Ladder style—each phrase on a new line. Balance improvisation with his typical phrases—use 1–2 signature words/reactions per reply when they fit naturally. Prefer at least 2–3 lines. ${noArtifacts}`;
+    systemContent += `\n\nLength: ${lengthByContext} Use his typical phrases when they fit. Format: ladder style. ${noArtifacts}`;
   }
   messages.push({ role: 'system', content: systemContent });
 
@@ -258,7 +265,7 @@ export async function getReply(userMessage, history = [], options = {}) {
     ? (process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini')
     : useFinetunedModel()
       ? process.env.OPENAI_FINETUNED_MODEL.trim()
-      : (process.env.OPENAI_MODEL || 'gpt-5-mini');
+      : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
 
   const useFt = useFinetunedModel();
   const maxTokens = useFt

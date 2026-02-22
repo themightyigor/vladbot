@@ -5,7 +5,8 @@
  */
 
 import { Telegraf, Input } from 'telegraf';
-import { getReply } from '../ai/openaiService.js';
+import { getReply, loadPersona } from '../ai/openaiService.js';
+import { hasRagIndex } from '../rag/retrieve.js';
 import { getSpeech, isElevenLabsConfigured } from '../ai/elevenlabsService.js';
 import { mp3ToOggOpus } from '../ai/mp3ToOgg.js';
 import { wouldExceedDailyLimit, addVoiceChars } from '../ai/voiceUsage.js';
@@ -263,8 +264,14 @@ bot.on('sticker', async (ctx) => {
 export async function runBot() {
   const token = process.env.BOT_TOKEN;
   if (!token) {
-    throw new Error('BOT_TOKEN is not set in .env');
+    throw new Error('BOT_TOKEN is not set. Set BOT_TOKEN in Railway Variables.');
   }
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    throw new Error('OPENAI_API_KEY is not set. Set it in Railway Variables.');
+  }
+  const persona = loadPersona();
+  console.log('Persona loaded:', persona?.personName || 'ok');
+  console.log('RAG index:', hasRagIndex() ? 'yes' : 'no (optional)');
   const me = await bot.telegram.getMe();
   botUsername = me.username;
   botId = me.id;

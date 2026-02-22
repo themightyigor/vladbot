@@ -3,7 +3,7 @@ node_modules/
 *.log
 .DS_Store
 
-# data/ – ignore large/sensitive files; allow only persona for deploy (rag-index too large for GitHub)
+# data/ – ignore large/sensitive files; allow only persona for Railway/deploy
 data/*
 !data/persona.json
 
