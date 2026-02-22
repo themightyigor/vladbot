@@ -6,6 +6,7 @@ import 'dotenv/config';
 import { Telegraf } from 'telegraf';
 import { sendMorningMessage } from '../src/bot/morningMessage.js';
 
+console.log('sendMorning: started');
 const token = process.env.BOT_TOKEN?.trim();
 const chatId = process.env.MORNING_GROUP_CHAT_ID?.trim();
 if (!token || !chatId) {
@@ -20,4 +21,5 @@ try {
   console.error('sendMorning failed:', err?.message || err);
   process.exit(1);
 }
+console.log('sendMorning: done, exiting');
 process.exit(0);

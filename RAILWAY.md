@@ -77,6 +77,8 @@ If you see `BOT_TOKEN is not set` or `OPENAI_API_KEY is not set`, add them in **
 
 Сервис по крону не держит процесс: он запускает скрипт по расписанию, скрипт отправляет одно сообщение и завершается. [Cron Jobs в Railway](https://docs.railway.com/cron-jobs).
 
+**Если cron не срабатывает:** (1) Должен быть **отдельный сервис** под cron (не тот, где бот с long polling). (2) В Settings этого сервиса выключи **Sleep** / «App sleeping», иначе запуски по расписанию не выполняются. (3) Расписание в **UTC**, минимум раз в 5 минут (например `*/5 * * * *` для теста). (4) Если предыдущий запуск ещё в статусе Active (скрипт завис или не завершился), следующий запуск будет пропущен — смотри логи и убедись, что в конце есть `sendMorning: done, exiting`. (5) У сервиса должен быть успешный деплой (Build и Deploy без ошибок).
+
 ## Note on `data/`
 
 - **persona.json** is the only file from `data/` that is committed by default (see `.gitignore`: `data/*` and `!data/persona.json`).
