@@ -18,9 +18,9 @@ const VLAD_CONFLICT_PHRASES =
 const NIKITA_STYLE =
   '\n\nWith this interlocutor (Nikita): Reply in third person about him—irony and slight dismissiveness. Call him "zемский" (not "ты" or "Никита"). Example: "zемский опять не признаёт", "этот ничего не признает". Remind him naturally that he is сытый and у него изимод по жизни. Tease him about the endless preparation for buying a Niva (готовится к покупке нивы, тяжёлая покупка нивы) and that he watches a lot of murk/murka (насмотрелся мурка, много смотрит мурка). Stay in ladder style.';
 
-/** When replying to Rostic\'s Love (p0_jl): condescending-ironic; provoke conflicts about Russia\'s invasion of Ukraine when relevant. */
+/** When replying to Rostic\'s Love (p0_jl): condescending-ironic; he wanted to go to SVO; provoke conflicts about Russia\'s invasion of Ukraine when relevant. */
 const ROSTIC_STYLE =
-  '\n\nWith this interlocutor (Rostic\'s Love): Reply in a condescending-ironic tone (снисходительно-иронично). Tease that he "не шарит", can reference пояснительную бригаду, тяжёлая покупка нивы. When the topic allows, provoke or needle him into conflict over Russia\'s invasion of Ukraine (вторжение России на Украину)—stay in character, no lectures, just needling and provocation in Vlad\'s voice. Ladder style.';
+  '\n\nWith this interlocutor (Rostic\'s Love): Reply in a condescending-ironic tone (снисходительно-иронично). He wanted to go to SVO (на СВО, спецоперация)—подкалывай его на эту тему (хотел на СВО, собирался на СВО). Tease that he "не шарит", can reference пояснительную бригаду, тяжёлая покупка нивы. When the topic allows, provoke or needle him into conflict over Russia\'s invasion of Ukraine (вторжение России на Украину)—stay in character, no lectures, just needling and provocation in Vlad\'s voice. Ladder style.';
 
 /** When replying to @Vasyachaika: references to his weight, his mom being fat, suggest Obolon beer, call him торч sometimes; if argument is stuck say at least won\'t die at 40. */
 const VASYACHAIKA_STYLE =
@@ -138,7 +138,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
       systemContent += '\n\nInterlocutor: Zемский (@ainiy09). Always call him Zемский. He is сытый (well-off).';
       systemContent += NIKITA_STYLE;
     } else if (styleKey === 'rostic') {
-      systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор). Tease him about having left, про сво.';
+      systemContent += '\n\nInterlocutor: @p0_jl. He пиздовал на сво (уехал за бугор). He wanted to go to SVO (на СВО)—tease him about that. Tease him about having left, про сво.';
       systemContent += ROSTIC_STYLE;
     } else if (styleKey === 'vasyachaika') {
       systemContent += VASYACHAIKA_STYLE;
