@@ -8,7 +8,8 @@ import path from 'path';
 import { getReply } from '../ai/openaiService.js';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-const STATE_FILE = path.join(DATA_DIR, 'morning_state.json');
+const STATE_DIR = process.env.MORNING_STATE_DIR?.trim() || DATA_DIR;
+const STATE_FILE = path.join(STATE_DIR, 'morning_state.json');
 
 const PODKOL_TARGETS = [
   { username: 'ainiy09', interlocutorName: 'Nikita' },
@@ -30,7 +31,7 @@ function loadState() {
 
 function saveState(state) {
   try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(STATE_DIR)) fs.mkdirSync(STATE_DIR, { recursive: true });
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
   } catch (err) {
     console.error('Morning state save failed:', err.message);

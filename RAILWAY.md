@@ -68,7 +68,12 @@ If you see `BOT_TOKEN is not set` or `OPENAI_API_KEY is not set`, add them in **
    - **Start Command:** `node scripts/sendMorning.js`
    - **Cron Schedule:** расписание в формате crontab (UTC). Пример: `0 5 * * *` — каждый день в 05:00 UTC (08:00 МСК).
 4. **Variables:** те же, что у бота: `BOT_TOKEN`, `OPENAI_API_KEY`, `MORNING_GROUP_CHAT_ID`. Остальные по желанию.
-5. **Volume (рекомендуется):** добавь volume и смонтируй в `data/`, чтобы `morning_state.json` сохранялся между запусками (чередование «реакция на вчера» / «подкол дня»). Без volume состояние сбрасывается при каждом новом контейнере.
+5. **Volume (рекомендуется)** — чтобы `morning_state.json` сохранялся между запусками (чередование «реакция на вчера» / «подкол дня»):
+   - В проекте нажми **Ctrl+K** (или **⌘K** на Mac), в поиске введи **volume** → **Create Volume** (или правый клик по канвасу → создать volume).
+   - Выбери **сервис Cron** (тот, где `sendMorning.js`).
+   - **Mount Path** укажи: **`/app/data/morning`** (состояние пишется в этот каталог; `persona.json` остаётся в образе в `data/`).
+   - В **Variables** сервиса Cron добавь: **`MORNING_STATE_DIR=/app/data/morning`**.
+   - Сохрани. При каждом запуске по крону состояние будет в volume, а персона — из образа. Без volume состояние сбрасывается при новом запуске.
 
 Сервис по крону не держит процесс: он запускает скрипт по расписанию, скрипт отправляет одно сообщение и завершается. [Cron Jobs в Railway](https://docs.railway.com/cron-jobs).
 
