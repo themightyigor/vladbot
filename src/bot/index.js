@@ -16,7 +16,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const userHistory = new Map();
 let lastVoiceAt = 0;
 const MAX_HISTORY = 20;
-const VOICE_COOLDOWN_MS = 5 * 60 * 1000;
+const VOICE_COOLDOWN_MS = 60 * 60 * 1000; // 1 голосовое в час
 const dailyVoiceCharLimit = Math.max(0, Number(process.env.ELEVENLABS_DAILY_CHAR_LIMIT) || 0);
 
 let botUsername = null;
