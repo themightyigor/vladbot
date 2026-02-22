@@ -17,7 +17,16 @@ export async function getSpeech(text, voiceId) {
   }
 
   const modelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
+  const speed = Math.min(1.2, Math.max(0.5, Number(process.env.ELEVENLABS_SPEED) || 1));
   const url = `${ELEVENLABS_BASE}/text-to-speech/${encodeURIComponent(voiceId)}`;
+
+  const body = {
+    text: text.slice(0, 5000),
+    model_id: modelId
+  };
+  if (speed !== 1) {
+    body.voice_settings = { speed };
+  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -26,10 +35,7 @@ export async function getSpeech(text, voiceId) {
       'Content-Type': 'application/json',
       'xi-api-key': apiKey
     },
-    body: JSON.stringify({
-      text: text.slice(0, 5000),
-      model_id: modelId
-    })
+    body: JSON.stringify(body)
   });
 
   if (!res.ok) {
