@@ -7,6 +7,7 @@
 import { Telegraf, Input } from 'telegraf';
 import { getReply, loadPersona } from '../ai/openaiService.js';
 import { hasRagIndex } from '../rag/retrieve.js';
+import { startMorningScheduler } from './morningMessage.js';
 import { getSpeech, isElevenLabsConfigured } from '../ai/elevenlabsService.js';
 import { mp3ToOggOpus } from '../ai/mp3ToOgg.js';
 import { wouldExceedDailyLimit, addVoiceChars } from '../ai/voiceUsage.js';
@@ -296,6 +297,7 @@ export async function runBot() {
   botId = me.id;
   await bot.launch();
   console.log('Bot is running (long polling). Username:', botUsername);
+  startMorningScheduler(bot.telegram);
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 }
