@@ -120,10 +120,11 @@ async function generateMorningNyrik() {
 async function generatePodkolDay() {
   const target = PODKOL_TARGETS[Math.floor(Math.random() * PODKOL_TARGETS.length)];
   const prompt = `Сейчас ты пишешь в группу. Напиши один короткий подкол или напоминание для этого человека (в своём стиле). Одна-две строки лесенкой. Только текст подкола.`;
-  return getReply(prompt, [], {
+  const text = await getReply(prompt, [], {
     username: target.username,
     interlocutorName: target.interlocutorName
   });
+  return { text, username: target.username };
 }
 
 export async function sendMorningMessage(telegram) {
@@ -142,8 +143,15 @@ export async function sendMorningMessage(telegram) {
 
   const nextType = state.lastType === 'nyrik' || state.lastType === 'reaction' ? 'podkol' : 'nyrik';
   let text;
+  let podkolUsername = null;
   try {
-    text = nextType === 'nyrik' ? await generateMorningNyrik() : await generatePodkolDay();
+    if (nextType === 'nyrik') {
+      text = await generateMorningNyrik();
+    } else {
+      const podkol = await generatePodkolDay();
+      text = podkol.text;
+      podkolUsername = podkol.username;
+    }
   } catch (err) {
     console.error('Morning message generate failed:', err.message);
     return;
@@ -153,8 +161,9 @@ export async function sendMorningMessage(telegram) {
     return;
   }
 
+  const messageToSend = podkolUsername ? `@${podkolUsername} ${text.trim()}` : text.trim();
   try {
-    await telegram.sendMessage(chatId, text.trim());
+    await telegram.sendMessage(chatId, messageToSend);
     saveState({ lastSentDate: today, lastType: nextType });
     console.log('Morning message sent:', nextType, today);
   } catch (err) {
