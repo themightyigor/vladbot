@@ -91,19 +91,75 @@ function buildPairs(messages, personNames, maxPairs = 40) {
   }));
 }
 
-function buildStyleSamples(messages, personNames, maxSamples = 50, minLen = 10, maxLen = 180) {
-  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
-  const byPerson = messages
-    .filter((m) => set.has(m.author))
-    .map((m) => stripTimeAndName((typeof m.text === 'string' ? m.text : getText(m.text)).trim(), personNames))
-    .filter((t) => t.length >= minLen && t.length <= maxLen && !/^[\d:]+\s*$/.test(t));
-  if (byPerson.length <= maxSamples) return byPerson;
-  const step = (byPerson.length - 1) / (maxSamples - 1);
+const BAD_STYLE_SAMPLE = /^(Photo|Video file|Sticker) Not included|^In reply to this message\s*$|^https?:\/\/\S+$/i;
+
+/** Topic categories for stratified style samples (order = priority). */
+const STYLE_TOPICS = [
+  {
+    key: 'politics',
+    name: 'политика/споры',
+    re: /орк|ватник|мобик|сво\b|завод\b.*(развал|войн|параплан)|войн|украин|вторжен|зона войны|до всех орков|реальность vs|политик/i
+  },
+  {
+    key: 'whining',
+    name: 'нытьё/деньги/жертва',
+    re: /денег нет|нет денег|похуй|нищ|терпил|зп\b|кредит|ипотек|подставили|150к|не по карману|пятизначн|только на себя|реальность\b/i
+  },
+  {
+    key: 'cars',
+    name: 'машины/мото',
+    re: /машин|жигул|omoda|некро|крета|авто|бмв|двигатель|кузов|колес|мопед|мото|гараж|маслорий|тигуан|грант/i
+  },
+  {
+    key: 'invites',
+    name: 'приглашения/планы',
+    re: /поехали|приезжай|тусить|на дачу|рыбалк|погнали|в субботу|в воскресенье|подумаю|надо думать|чуть позже|собраться|в спб|на вышку/i
+  },
+  {
+    key: 'roasts',
+    name: 'подколы/сарказм',
+    re: /конч|заебал|zемский|не выебывайся|конченн|подкол|соскуфился|придурок|дауны|сосите жопу/i
+  },
+  {
+    key: 'work',
+    name: 'работа/смена',
+    re: /завод|смен|пивточк|работа|зарплат|магнит|терплю у магнита/i
+  },
+  {
+    key: 'health',
+    name: 'здоровье',
+    re: /нога|спина|зуб|здоровь|болит|больн|врач|больничн/i
+  },
+  {
+    key: 'games',
+    name: 'игры/контент',
+    re: /кс\b|кромвельк|дока|игр|двач|нормис|видос|пикабу|слово пацана/i
+  },
+  {
+    key: 'support',
+    name: 'сухая поддержка/реакции',
+    re: /\b(угу|окей|красиво|круто|топ\b|найс|респект|соглы|прикольно|возьми|потянем|бери)\b/i
+  }
+];
+
+function assignTopic(text) {
+  if (text.length <= 55 && STYLE_TOPICS.find((t) => t.key === 'support').re.test(text)) return 'support';
+  for (const { key, re } of STYLE_TOPICS) {
+    if (key === 'support') continue;
+    if (re.test(text)) return key;
+  }
+  return 'other';
+}
+
+function pickFromBucket(arr, count) {
+  if (!arr.length || count <= 0) return [];
+  if (arr.length <= count) return [...arr];
+  const step = (arr.length - 1) / (count - 1);
   const out = [];
   const seen = new Set();
-  for (let k = 0; k < maxSamples; k++) {
-    const i = Math.min(Math.round(k * step), byPerson.length - 1);
-    const s = byPerson[i];
+  for (let k = 0; k < count; k++) {
+    const i = Math.min(Math.round(k * step), arr.length - 1);
+    const s = arr[i];
     if (s && !seen.has(s)) {
       seen.add(s);
       out.push(s);
@@ -112,16 +168,70 @@ function buildStyleSamples(messages, personNames, maxSamples = 50, minLen = 10, 
   return out;
 }
 
+function buildStyleSamples(messages, personNames, maxSamples = 75, minLen = 8, maxLen = 280) {
+  const set = new Set(Array.isArray(personNames) ? personNames : [personNames]);
+  const all = messages
+    .filter((m) => set.has(m.author))
+    .map((m) => stripTimeAndName((typeof m.text === 'string' ? m.text : getText(m.text)).trim(), personNames))
+    .filter(
+      (t) =>
+        t.length >= minLen &&
+        t.length <= maxLen &&
+        !/^[\d:]+\s*$/.test(t) &&
+        !BAD_STYLE_SAMPLE.test(t) &&
+        !/exporting settings to download/i.test(t)
+    );
+
+  const byTopic = {};
+  for (const key of [...STYLE_TOPICS.map((t) => t.key), 'other']) {
+    byTopic[key] = [];
+  }
+  const seen = new Set();
+  for (const t of all) {
+    if (seen.has(t)) continue;
+    seen.add(t);
+    const topic = assignTopic(t);
+    byTopic[topic].push(t);
+  }
+
+  const topicKeys = [...STYLE_TOPICS.map((t) => t.key), 'other'];
+  const perTopic = Math.max(4, Math.floor(maxSamples / topicKeys.length));
+  const out = [];
+  for (const key of topicKeys) {
+    const bucket = byTopic[key] || [];
+    const take = key === 'other' ? Math.max(perTopic, maxSamples - out.length) : Math.min(bucket.length, perTopic);
+    out.push(...pickFromBucket(bucket, take));
+  }
+
+  if (out.length >= maxSamples) {
+    return { samples: out.slice(0, maxSamples), byTopic: countByTopic(out, assignTopic) };
+  }
+  const other = byTopic['other'] || [];
+  const need = maxSamples - out.length;
+  const otherTaken = pickFromBucket(other.filter((s) => !out.includes(s)), need);
+  const final = [...out, ...otherTaken].slice(0, maxSamples);
+  return { samples: final, byTopic: countByTopic(final, assignTopic) };
+}
+
+function countByTopic(samples, assignTopicFn) {
+  const c = {};
+  for (const s of samples) {
+    const t = assignTopicFn(s);
+    c[t] = (c[t] || 0) + 1;
+  }
+  return c;
+}
+
 function main() {
   const personName = process.env.PERSON_NAME || 'Vlad';
   const personNames = getPersonNames();
-  const maxPairs = Math.min(Number(process.env.PERSONA_FEW_SHOT_PAIRS) || 40, 60);
-  const maxStyleSamples = Math.min(Number(process.env.PERSONA_STYLE_SAMPLES) || 50, 80);
+  const maxPairs = Math.min(Number(process.env.PERSONA_FEW_SHOT_PAIRS) || 55, 70);
+  const maxStyleSamples = Math.min(Number(process.env.PERSONA_STYLE_SAMPLES) || 75, 100);
   const messages = loadConversation();
 
   const style = extractStyle(messages, personNames);
   const pairs = buildPairs(messages, personNames, maxPairs);
-  const styleSamples = buildStyleSamples(messages, personNames, maxStyleSamples);
+  const { samples: styleSamples, byTopic: styleSamplesByTopic } = buildStyleSamples(messages, personNames, maxStyleSamples);
 
   const styleNotes = [];
   if (style.hasEmoji) styleNotes.push('Uses emoji naturally.');
@@ -131,8 +241,9 @@ function main() {
   styleNotes.push('Separates thoughts by newline (ladder), not by periods.');
   styleNotes.push(`Based on ${style.sampleCount} messages from the conversation.`);
 
+  const samplesInPrompt = Math.min(styleSamples.length, 65);
   const samplesBlock = styleSamples.length
-    ? `\nExample phrases (match this style):\n${styleSamples.slice(0, 55).map((s) => `- ${s}`).join('\n')}`
+    ? `\nExample phrases (match this style):\n${styleSamples.slice(0, samplesInPrompt).map((s) => `- ${s}`).join('\n')}`
     : '';
 
   const traitsLine = process.env.PERSONA_TRAITS
@@ -156,7 +267,8 @@ Style: ${styleNotes.join(' ')} Use similar vocabulary, tone, and sentence length
     styleSamples,
     meta: {
       messageCount: messages.length,
-      personMessageCount: style.sampleCount
+      personMessageCount: style.sampleCount,
+      styleSamplesByTopic: styleSamplesByTopic || null
     }
   };
 
@@ -167,6 +279,9 @@ Style: ${styleNotes.join(' ')} Use similar vocabulary, tone, and sentence length
   fs.writeFileSync(PERSONA_FILE, JSON.stringify(persona, null, 2), 'utf8');
   console.log(`Persona for "${personName}" saved to ${PERSONA_FILE}`);
   console.log(`System prompt: ${systemPrompt.length} chars. Few-shot pairs: ${pairs.length}. Style samples: ${styleSamples.length}.`);
+  if (persona.meta?.styleSamplesByTopic) {
+    console.log('Style samples by topic:', persona.meta.styleSamplesByTopic);
+  }
 }
 
 main();

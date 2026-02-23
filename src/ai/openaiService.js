@@ -113,7 +113,7 @@ export function loadPersona() {
   return cachedPersona;
 }
 
-const MAX_FEW_SHOT_IN_PROMPT = Math.min(Number(process.env.OPENAI_FEW_SHOT_IN_PROMPT) || 32, 45);
+const MAX_FEW_SHOT_IN_PROMPT = Math.min(Number(process.env.OPENAI_FEW_SHOT_IN_PROMPT) || 40, 55);
 const RAG_TOP_K = Math.min(Number(process.env.RAG_TOP_K) || 15, 25);
 const FEW_SHOT_WHEN_RAG = Math.min(Number(process.env.OPENAI_FEW_SHOT_WHEN_RAG) || 10, 18);
 
@@ -200,7 +200,7 @@ function buildMessages(persona, userMessage, history = [], ragChunks = [], optio
     systemContent += `\n\nRelevant past dialogue (reply in this style):\n${ragChunks.join('\n\n')}`;
   }
   if (!useFt && persona.styleSamples && persona.styleSamples.length > 40) {
-    const extra = persona.styleSamples.slice(40, 70).map((s) => `- ${s}`).join('\n');
+    const extra = persona.styleSamples.slice(40, 85).map((s) => `- ${s}`).join('\n');
     if (extra) systemContent += `\n\nMore example phrases (match this style):\n${extra}`;
   }
   const noArtifacts = 'Never use commas (not Vlad\'s style). Always use newlines: one short phrase per line (лесенка). Never output URLs, links, timestamps (e.g. 20:35), "In reply to this message", or "Photo/Video Not included". Reply only with plain text.';
