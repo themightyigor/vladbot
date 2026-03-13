@@ -58,16 +58,16 @@ In Railway: your service → **Deployments** → latest → **View logs**. You s
 
 If you see `BOT_TOKEN is not set` or `OPENAI_API_KEY is not set`, add them in **Variables**. If you see `Persona not built`, commit `data/persona.json` (see step 0).
 
-## 5. (Optional) Утреннее сообщение по Cron
+## 5. (Optional) Мудрость по Cron
 
-Чтобы Влад раз в день писал в группу в **фиксированное время**, добавь второй сервис — Cron:
+Чтобы Влад раз в день писал в группу **мудрость от владосика** в фиксированное время, добавь второй сервис — Cron:
 
 1. В том же проекте: **New** → **Empty Service** (или **GitHub Repo** с тем же репо).
 2. Подключи тот же репозиторий, что и у бота.
 3. **Settings** сервиса:
    - **Cron Schedule:** расписание в формате crontab (UTC). Пример: `0 5 * * *` — каждый день в 05:00 UTC (08:00 МСК). Start Command не меняй — оба сервиса запускают `npm start`; выбор «бот или cron» по переменной ниже.
 4. **Variables:** те же, что у бота: `BOT_TOKEN`, `OPENAI_API_KEY`, `MORNING_GROUP_CHAT_ID`. Плюс **обязательно:** `RUN_MORNING_CRON=1` — тогда при запуске по крону выполнится `scripts/sendMorning.js`, а не бот.
-5. **Volume (рекомендуется)** — чтобы `morning_state.json` сохранялся между запусками (чередование «реакция на вчера» / «подкол дня»):
+5. **Volume (рекомендуется)** — чтобы `morning_state.json` сохранялся между запусками и cron не отправлял сообщение повторно в тот же день:
    - В проекте нажми **Ctrl+K** (или **⌘K** на Mac), в поиске введи **volume** → **Create Volume** (или правый клик по канвасу → создать volume).
    - Выбери **сервис Cron** (тот, где `sendMorning.js`).
    - **Mount Path** укажи: **`/app/data/morning`** (состояние пишется в этот каталог; `persona.json` остаётся в образе в `data/`).

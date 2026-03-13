@@ -1,5 +1,5 @@
 /**
- * Daily morning message: alternates "утренний нытик" (по дню недели и погоде в Кингисеппе) and "подкол дня".
+ * Daily scheduled message: sends "мудрость от владосика".
  * Used by scripts/sendMorning.js (Railway Cron). Set MORNING_GROUP_CHAT_ID to enable.
  */
 
@@ -7,54 +7,12 @@ import fs from 'fs';
 import path from 'path';
 import { getReply } from '../ai/openaiService.js';
 
-const KINGISEPP_LAT = 59.37;
-const KINGISEPP_LON = 28.61;
 const DAY_NAMES_RU = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
-
-// WMO weather code -> короткое описание для промпта
-const WEATHER_LABELS = {
-  0: 'ясно',
-  1: 'преимущественно ясно',
-  2: 'переменная облачность',
-  3: 'пасмурно',
-  45: 'туман',
-  48: 'изморозь',
-  51: 'морось',
-  53: 'морось',
-  55: 'морось',
-  61: 'дождь',
-  63: 'дождь',
-  65: 'ливень',
-  71: 'снег',
-  73: 'снег',
-  75: 'снег',
-  77: 'снег',
-  80: 'ливень',
-  81: 'ливень',
-  82: 'ливень',
-  85: 'снегопад',
-  86: 'снегопад',
-  95: 'гроза',
-  96: 'гроза с градом',
-  99: 'гроза с градом'
-};
-
-function weatherCodeToLabel(code) {
-  return WEATHER_LABELS[code] ?? 'непойми что';
-}
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const STATE_DIR = process.env.MORNING_STATE_DIR?.trim() || DATA_DIR;
 const STATE_FILE = path.join(STATE_DIR, 'morning_state.json');
-
-const PODKOL_TARGETS = [
-  { username: 'ainiy09', interlocutorName: 'Nikita' },
-  { username: 'p0_jl', interlocutorName: 'Rostic' },
-  { username: 'vasyachaika', interlocutorName: 'Вася' },
-  { username: 'irbzv', interlocutorName: 'Игорь' },
-  { username: 'adtrety', interlocutorName: 'Андрей' },
-  { username: 'sk42pn', interlocutorName: 'Сергей' }
-];
+const WISDOM_SIGNATURE = 'Мудрости от Владосика228';
 
 function loadState() {
   try {
@@ -79,52 +37,32 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function fetchWeatherKingisepp() {
-  try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${KINGISEPP_LAT}&longitude=${KINGISEPP_LON}&current=temperature_2m,weather_code&timezone=Europe/Moscow`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const cur = data?.current;
-    if (!cur) return null;
-    return {
-      temp: cur.temperature_2m,
-      condition: weatherCodeToLabel(cur.weather_code ?? 0)
-    };
-  } catch (err) {
-    console.error('Weather fetch failed:', err.message);
-    return null;
-  }
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 }
 
-const NYRIK_ANGLES = [
-  'побудь нытиком про утро и подъём',
-  'побудь нытиком про день недели и работу/неделю',
-  'побудь нытиком про погоду за окном в Кингисеппе',
-  'коротко побурчи про сон или кофе',
-  'одна фраза недовольного утреннего нытика'
+const WISDOM_ANGLES = [
+  'абсурдная псевдо-глубокая мысль про жизнь',
+  'жизненный совет, который звучит уверенно, но по сути полная хуйня',
+  'мудрость про людей и их привычки с нелепым сравнением',
+  'едкая философия про утро, сон или усталость с шизовым поворотом',
+  'короткий афоризм с вайбом "владосик всё понял", но логика там сломана'
 ];
 
-async function generateMorningNyrik() {
+async function generateMorningWisdom() {
   const now = new Date();
   const dayName = DAY_NAMES_RU[now.getDay()];
-  const weather = await fetchWeatherKingisepp();
-  const weatherStr = weather
-    ? `Погода в Кингисеппе: ${weather.condition}, ${weather.temp}°C.`
-    : 'Погоду не подтянул.';
-  const angle = NYRIK_ANGLES[Math.floor(Math.random() * NYRIK_ANGLES.length)];
-  const prompt = `Сегодня ${dayName}. ${weatherStr}
-Ты просыпаешься и пишешь в группу одну короткую фразу утреннего нытика в своём стиле. Задача: ${angle}. Лесенкой, мат, без лишнего. Только твой ответ.`;
+  const angle = WISDOM_ANGLES[Math.floor(Math.random() * WISDOM_ANGLES.length)];
+  const prompt = `Сегодня ${dayName}.
+Ты пишешь в группу "мудрость от владосика" в своём стиле.
+Нужна одна короткая, смешная или едкая псевдомудрая мысль. Задача: ${angle}.
+Сделай её нарочито абсурдной: чтобы звучало как будто есть смысл, но при этом это немного бред, нелепость или кривая бытовая философия.
+Можно мат, можно лесенкой, но без лишнего разгона.
+Никаких кавычек, заголовков, пояснений и подписи. Только текст самой мудрости.`;
   return getReply(prompt, [], { username: '', interlocutorName: null });
-}
-
-async function generatePodkolDay() {
-  const target = PODKOL_TARGETS[Math.floor(Math.random() * PODKOL_TARGETS.length)];
-  const prompt = `Сейчас ты пишешь в группу. Напиши один короткий подкол или напоминание для этого человека (в своём стиле). Одна-две строки лесенкой. Только текст подкола.`;
-  const text = await getReply(prompt, [], {
-    username: target.username,
-    interlocutorName: target.interlocutorName
-  });
-  return { text, username: target.username };
 }
 
 export async function sendMorningMessage(telegram) {
@@ -141,17 +79,9 @@ export async function sendMorningMessage(telegram) {
     return;
   }
 
-  const nextType = state.lastType === 'nyrik' || state.lastType === 'reaction' ? 'podkol' : 'nyrik';
   let text;
-  let podkolUsername = null;
   try {
-    if (nextType === 'nyrik') {
-      text = await generateMorningNyrik();
-    } else {
-      const podkol = await generatePodkolDay();
-      text = podkol.text;
-      podkolUsername = podkol.username;
-    }
+    text = await generateMorningWisdom();
   } catch (err) {
     console.error('Morning message generate failed:', err.message);
     return;
@@ -161,11 +91,11 @@ export async function sendMorningMessage(telegram) {
     return;
   }
 
-  const messageToSend = podkolUsername ? `@${podkolUsername} ${text.trim()}` : text.trim();
+  const messageToSend = `${escapeHtml(text.trim())}\n\n<i>${escapeHtml(WISDOM_SIGNATURE)}</i>`;
   try {
-    await telegram.sendMessage(chatId, messageToSend);
-    saveState({ lastSentDate: today, lastType: nextType });
-    console.log('Morning message sent:', nextType, today);
+    await telegram.sendMessage(chatId, messageToSend, { parse_mode: 'HTML' });
+    saveState({ lastSentDate: today, lastType: 'wisdom' });
+    console.log('Morning message sent: wisdom', today);
   } catch (err) {
     console.error('Morning message send failed:', err.message);
   }
