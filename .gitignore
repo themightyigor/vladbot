@@ -3,9 +3,11 @@ node_modules/
 *.log
 .DS_Store
 
-# data/ – ignore large/sensitive files; allow only persona for Railway/deploy
+# data/ – ignore large/sensitive files; allow persona + faceswap assets for deploy
 data/*
 !data/persona.json
+!data/faceswap/
+!data/faceswap/**
 
 # Telegram chat exports (private)
 vlad/
