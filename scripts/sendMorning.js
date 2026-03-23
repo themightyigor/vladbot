@@ -1,6 +1,6 @@
 /**
- * One-shot scheduled wisdom message for Railway Cron. Run on schedule (e.g. 0 5 * * * = 08:00 MSK).
- * Requires: BOT_TOKEN, MORNING_GROUP_CHAT_ID, OPENAI_API_KEY; data/persona.json; optional volume for data/morning_state.json.
+ * One-shot scheduled morning mini-anecdote for Railway Cron (e.g. 0 5 * * * ≈ 08:00 MSK).
+ * Requires: BOT_TOKEN, MORNING_GROUP_CHAT_ID, OPENAI_API_KEY; data/persona.json; optional volume for morning_state.json (see MORNING_STATE_DIR).
  */
 import 'dotenv/config';
 import { Telegraf } from 'telegraf';

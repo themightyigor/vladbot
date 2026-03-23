@@ -16,7 +16,8 @@
     "start-finetune-job": "node src/finetune/startJob.js",
     "attitude-table": "node src/scripts/attitudeTable.js",
     "merge-exports": "node scripts/mergeChatExports.js",
-    "bot": "node src/index.js"
+    "bot": "node src/index.js",
+    "preview-morning": "node scripts/previewMorningAnecdote.js"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
